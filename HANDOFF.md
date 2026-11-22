@@ -2,7 +2,7 @@
 
 - Auteur : Yassine Achour.
 - Branche : feat/j01-foundation ; cible : main.
-- PR : texte prêt dans docs/PR_J01.md ; aucune PR distante, aucun push ni merge.
+- PR : description dans docs/PR_J01.md ; publication de la branche et ouverture vers main autorisées par Yassine après validation du Jour 1. Aucune fusion automatique.
 - État : fondation frontend fonctionnelle en démonstration locale.
 
 ## Fait et fichiers

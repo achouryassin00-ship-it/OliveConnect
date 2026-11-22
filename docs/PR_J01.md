@@ -12,4 +12,4 @@ Limites : connexion et inscription non fonctionnelles, carte schématique, pas d
 
 Revue demandée à Ben Ayed : vocabulaire JSON, authentification, noms de statuts et responsabilités Jour 2.
 
-**PR préparée localement, pas créée sur GitHub** : publication de la branche nécessaire et soumise à la confirmation de Yassine. Aucun push ni merge exécuté.
+Jour 1 validé par Yassine. Publication de la branche et ouverture de cette PR autorisées ; fusion laissée à la revue de l’équipe, sans fusion automatique.

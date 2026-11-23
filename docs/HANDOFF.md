@@ -1,3 +1,3 @@
-# Passation
+# Passation — Jour 3 vers Jour 4
 
-La passation de référence demandée est [HANDOFF.md à la racine](../HANDOFF.md). Ce lien maintient la convention documentaire du dossier sans dupliquer un état susceptible de diverger.
+La passation de référence demandée et détaillée pour le Jour 3 est disponible à la racine du projet : [HANDOFF.md](../HANDOFF.md).

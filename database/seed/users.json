@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Mohamed Admin",
+    "email": "admin@oliveconnect.tn",
+    "roles": ["ADMINISTRATEUR"],
+    "active": true
+  },
+  {
+    "name": "Sami Responsable",
+    "email": "collecte@oliveconnect.tn",
+    "roles": ["RESPONSABLE_COLLECTE"],
+    "active": true
+  },
+  {
+    "name": "Ali Ben M'Barek",
+    "email": "ali.benmbarek@sfax.tn",
+    "roles": ["AGRICULTEUR"],
+    "active": true
+  },
+  {
+    "name": "Fatma Triki",
+    "email": "fatma.triki@sfax.tn",
+    "roles": ["AGRICULTEUR"],
+    "active": true
+  },
+  {
+    "name": "Habib Kammoun",
+    "email": "habib.kammoun@sfax.tn",
+    "roles": ["AGRICULTEUR"],
+    "active": true
+  }
+]

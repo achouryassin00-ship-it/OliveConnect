@@ -36,6 +36,28 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ErrorResponse> handleCustomValidation(ValidationException ex) {
+        ErrorResponse response = new ErrorResponse(
+                "VALIDATION_ERROR",
+                ex.getMessage(),
+                ex.getFieldErrors()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(BusinessConflictException.class)
+    public ResponseEntity<ErrorResponse> handleBusinessConflict(BusinessConflictException ex) {
+        ErrorResponse response = new ErrorResponse("RESOURCE_CONFLICT", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLocking(org.springframework.dao.OptimisticLockingFailureException ex) {
+        ErrorResponse response = new ErrorResponse("RESOURCE_CONFLICT", "Les données ont été modifiées par un autre utilisateur. Veuillez recharger la page avant de réessayer.");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
     @ExceptionHandler(DuplicateEmailException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateEmail(DuplicateEmailException ex) {
         ErrorResponse response = new ErrorResponse("EMAIL_ALREADY_EXISTS", ex.getMessage());

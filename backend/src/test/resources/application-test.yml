@@ -1,8 +1,21 @@
 spring:
   data:
     mongodb:
-      uri: mongodb://localhost:27017/oliveconnect_test
-      auto-index-creation: true
+      uri: ${MONGODB_URI:mongodb://localhost:27017/oliveconnect_test}
+      database: oliveconnect_test
+      auto-index-creation: false
+
+oliveconnect:
+  seed:
+    enabled: false
+  geo:
+    sfax:
+      min-lat: 34.30
+      max-lat: 35.40
+      min-lng: 9.80
+      max-lng: 11.20
+  verger:
+    max-surface-ha: 1000.0
 
 jwt:
   secret: test-jwt-secret-key-sfax-2026-super-safe-minimum-256-bits

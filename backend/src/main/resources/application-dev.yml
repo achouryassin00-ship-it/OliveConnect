@@ -1,0 +1,4 @@
+logging:
+  level:
+    com.oliveconnect: DEBUG
+    org.springframework.security: INFO

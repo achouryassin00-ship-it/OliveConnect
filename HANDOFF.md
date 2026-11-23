@@ -1,47 +1,53 @@
-# Passation — Jour 1
+# Passation — Jour 2 vers Jour 3
 
-- Auteur : Yassine Achour.
-- Branche : feat/j01-foundation ; cible : main.
-- PR : description dans docs/PR_J01.md ; publication de la branche et ouverture vers main autorisées par Yassine après validation du Jour 1. Aucune fusion automatique.
-- État : fondation frontend fonctionnelle en démonstration locale.
+- **Auteur sortant (Jour 2)** : Ben Ayed.
+- **Prochain responsable (Jour 3)** : Ben Slima (MongoDB et Vergers).
+- **Branche** : `feat/j02-backend-auth` ; cible : `main`.
+- **État** : Backend Spring Boot 3.3.5 opérationnel avec authentification, sécurité JWT, modèles utilisateurs, endpoints de santé et suite de 27 tests automatisés validés.
 
-## Fait et fichiers
+---
 
-React/Vite/TypeScript strict, Router, design olive/sauge, sidebar responsive, 12 pages, aide et 404. Recherche locale des collectes, sélection sur carte schématique, états chargement/vide/erreur et reprise de démonstration.
+## 1. Réalisations du Jour 2
 
-frontend/ contient configuration, verrou npm, src/api, src/types, src/demo, src/lib, src/components, src/pages, styles et tests e2e. README.md mis à jour ; .gitignore, .gitattributes, .env.example ajoutés. backend/, database/, deployment/ contiennent uniquement leur README. docs/ contient ARCHITECTURE.md, API_CONTRACT.md, PR_J01.md et un lien vers cette passation.
+1. **Initialisation Spring Boot & Maven** :
+   - Mise en place du socle dans `backend/` avec architecture propre : `Controller`, `Service`, `Repository`, `Entity`, `DTO`, `Security`, `Exception`, `Config`.
+   - Intégration de Spring Web, Spring Security 6, Spring Validation et Spring Data MongoDB.
+   - Profils de configuration : `dev` et `test` (`application.yml`, `application-dev.yml`, `application-test.yml`).
 
-## Lancement et vérification
+2. **Endpoints implémentés** :
+   - `GET /health` & `GET /api/health` : Health check public (`{"status":"UP"}`).
+   - `POST /api/auth/register` : Inscription avec hachage BCrypt, validation des champs et émission du jeton.
+   - `POST /api/auth/login` : Authentification, vérification du mot de passe et du compte actif.
+   - `POST /api/auth/logout` : Clôture de session (204 No Content).
+   - `GET /api/auth/me` : Consultation du profil connecté via jeton Bearer JWT.
+   - `GET /api/users/{id}` : Consultation sécurisée d'un utilisateur, protégée par `@securityService.isOwnerOrAdmin(#id)`.
 
-Depuis la racine :
+3. **Sécurité & Règles d'intégrité** :
+   - Hachage des mots de passe avec `BCryptPasswordEncoder`.
+   - Jetons JWT sécurisés (HMAC-SHA256, expiration configurable).
+   - Gestion fine des rôles (`AGRICULTEUR`, `RESPONSABLE_COLLECTE`, `CHEF_EQUIPE`, `RESPONSABLE_LOGISTIQUE`, `RESPONSABLE_PRESSOIR`, `ADMINISTRATEUR`).
+   - Règle CPT-07 : protection empêchant la désactivation du dernier administrateur actif.
+   - Gestion centralisée des erreurs avec `GlobalExceptionHandler` (`VALIDATION_ERROR`, `EMAIL_ALREADY_EXISTS`, `BAD_CREDENTIALS`, `ACCOUNT_DISABLED`, `ACCESS_DENIED`, `UNAUTHORIZED`).
 
-```powershell
-cd frontend
-npm.cmd ci
-npm.cmd run dev
-```
+4. **Suite de tests (27/27 validés)** :
+   - `AuthServiceTest` : Inscription nominale, mot de passe haché en BCrypt, détection d'e-mail dupliqué, connexion nominale, mot de passe erroné, compte désactivé.
+   - `UserServiceTest` : Recherche par ID, gestion d'entité introuvable, désactivation, protection du dernier administrateur.
+   - `JwtServiceTest` : Génération, signature, validation et extraction des claims (email, userId, roles).
+   - `HealthControllerTest` : Vérification des routes de santé.
+   - `AuthControllerTest` : Validation des requêtes (400), conflits (409), erreurs d'identifiants (401), comptes inactifs (403), profil me (200/401).
+   - `UserControllerSecurityTest` : Tests d'accès propriétaire (200), blocage d'accès aux données d'un autre utilisateur (403), accès administrateur (200).
 
-URL : http://127.0.0.1:5173. Node >= 22.12 ; vérifié avec Node 24.11.1. Aucun .env requis pour la démo. Sous Windows, utiliser npm.cmd si PowerShell bloque npm.ps1.
+---
 
-Depuis frontend/ : npm.cmd run build, npm.cmd run typecheck, npm.cmd run lint, npm.cmd test, npm.cmd run test:e2e. Les tests e2e nécessitent Microsoft Edge installé ; leur configuration est à adapter sur un autre OS.
+## 2. Consignes pour Ben Slima — Jour 3
 
-Résultats : build réussi, TypeScript et lint sans erreur, 5/5 tests API et 2/2 tests navigateur réussis. Audit npm : 0 vulnérabilité. Vite démarre localement. Navigation desktop, recherche vide, erreur/reprise, chargement simulé, carte, auth sans envoi, 404, rechargement direct et 12 pages à 320 px vérifiés. Aucun appel API ni erreur JavaScript dans le parcours desktop. Rendus desktop/mobile examinés.
-
-## API, données et limites
-
-Aucun endpoint ajouté ; aucune collection ni aucun index créé. Toutes les données sont fictives et isolées dans src/demo/data.ts. Le client API est désactivé par défaut, sans fallback mock. Activer VITE_API_ENABLED ne branche pas les pages.
-
-Aucune authentification, gestion des droits, persistance, création/modification métier, notification, carte Leaflet ou intégration Spring Boot/MongoDB. Les règles d’intégrité ne sont pas implémentées. Les indicateurs illustrent une campagne et ne sont pas calculés à partir des petites listes d’exemples.
-
-Pas de blocage pour la démo locale. Décisions à valider : transport d’authentification, DTO, distinction TERMINEE/LIVREE, reprise après interruption, clôture des alertes et idempotence. Tests de sécurité, concurrence, charge, sauvegarde et parcours backend non réalisés. ESLint 9 fonctionne mais npm le signale hors support ; prévoir sa migration avec ses plugins.
-
-## Reprise pour Ben Ayed — Jour 2
-
-1. Lire docs/API_CONTRACT.md et valider les points ouverts avec l’équipe.
-2. Après revue et fusion autorisées par Yassine, repartir de main ; sinon consulter cette branche locale.
-3. Initialiser Spring Boot/Maven dans backend/ avec Controller, Service, Repository et Entity.
-4. Implémenter santé, inscription, connexion et utilisateur courant ; BCrypt, validation, erreurs homogènes, contrôle des rôles et propriétaires.
-5. Tester les cas nominaux et les refus d’accès. Ne pas considérer les menus de démonstration comme une autorisation.
-6. Documenter les besoins de connexion et de modèle pour Ben Slima au Jour 3, sans secrets dans Git.
-
-Prochaine issue à créer après autorisation : « J02 — Spring Boot, santé et authentification ». Aucun backend fonctionnel ni MongoDB n’a été créé au Jour 1.
+1. **Prise en main** :
+   - Consulter [database/README.md](database/README.md) pour les spécifications du modèle MongoDB.
+   - Vérifier l'exécution du backend et des tests : `cd backend && ./mvnw test`.
+2. **Modélisation MongoDB & Vergers** :
+   - Créer le modèle `Orchard` (verger) avec nom, surface (`areaHa`), variété (`Chemlali`, etc.), coordonnées GeoJSON (`Point` [longitude, latitude]).
+   - Ajouter l'index géospatial 2dsphere et l'index sur `ownerId`.
+   - Créer `OrchardRepository`, `OrchardService` et `OrchardController` pour les routes `/api/vergers` (lecture et création réservée aux agriculteurs pour leurs propres vergers en s'appuyant sur `SecurityService.getCurrentUserId()`).
+3. **Important** :
+   - Ne pas modifier le frontend sauf intégration API autorisée.
+   - Respecter le contrat d'API défini dans `docs/API_CONTRACT.md`.

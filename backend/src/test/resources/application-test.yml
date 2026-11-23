@@ -1,0 +1,12 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/oliveconnect_test
+      auto-index-creation: true
+
+jwt:
+  secret: test-jwt-secret-key-sfax-2026-super-safe-minimum-256-bits
+  expiration-ms: 3600000
+
+cors:
+  allowed-origins: "*"

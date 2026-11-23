@@ -1,0 +1,19 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: oliveconnect-backend
+  profiles:
+    default: dev
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/oliveconnect}
+      auto-index-creation: true
+
+jwt:
+  secret: ${JWT_SECRET:oliveconnect-secure-jwt-secret-key-sfax-2026-super-safe-minimum-256-bits}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}

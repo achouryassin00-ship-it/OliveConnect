@@ -1,0 +1,10 @@
+package com.oliveconnect.entity;
+
+public enum Role {
+    AGRICULTEUR,
+    RESPONSABLE_COLLECTE,
+    CHEF_EQUIPE,
+    RESPONSABLE_LOGISTIQUE,
+    RESPONSABLE_PRESSOIR,
+    ADMINISTRATEUR
+}

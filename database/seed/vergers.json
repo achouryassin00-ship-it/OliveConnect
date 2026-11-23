@@ -1,0 +1,87 @@
+[
+  {
+    "code": "VRG-SFX-001",
+    "nom": "Verger El Hencha Nord",
+    "ownerEmail": "ali.benmbarek@sfax.tn",
+    "commune": "El Hencha",
+    "localisation": {
+      "type": "Point",
+      "coordinates": [10.74, 35.13]
+    },
+    "precisionGpsMetres": 4.5,
+    "sourcePosition": "AUTO",
+    "surfaceHa": 15.5,
+    "nombreArbres": 250,
+    "anneePlantation": 2005,
+    "actif": true,
+    "edgeCases": ["VER-09 (Multi-variétés)", "Nominal Sfax Nord"]
+  },
+  {
+    "code": "VRG-SFX-002",
+    "nom": "Verger Mahrès Sud",
+    "ownerEmail": "ali.benmbarek@sfax.tn",
+    "commune": "Mahrès",
+    "localisation": {
+      "type": "Point",
+      "coordinates": [10.50, 34.53]
+    },
+    "precisionGpsMetres": null,
+    "sourcePosition": "MANUEL",
+    "surfaceHa": 8.25,
+    "nombreArbres": 120,
+    "anneePlantation": 2012,
+    "actif": true,
+    "edgeCases": ["VER-04 (Position manuelle et précision GPS nulle)", "Surface décimale"]
+  },
+  {
+    "code": "VRG-SFX-003",
+    "nom": "Verger El Amra",
+    "ownerEmail": "fatma.triki@sfax.tn",
+    "commune": "El Amra",
+    "localisation": {
+      "type": "Point",
+      "coordinates": [10.85, 34.97]
+    },
+    "precisionGpsMetres": 5.0,
+    "sourcePosition": "AUTO",
+    "surfaceHa": 20.0,
+    "nombreArbres": 320,
+    "anneePlantation": 1998,
+    "actif": true,
+    "edgeCases": ["Multi-parcelles avec surfaces distinctes"]
+  },
+  {
+    "code": "VRG-SFX-004",
+    "nom": "Verger Sakiet Ezzit Ancien",
+    "ownerEmail": "fatma.triki@sfax.tn",
+    "commune": "Sakiet Ezzit",
+    "localisation": {
+      "type": "Point",
+      "coordinates": [10.76, 34.80]
+    },
+    "precisionGpsMetres": 10.0,
+    "sourcePosition": "AUTO",
+    "surfaceHa": 5.0,
+    "nombreArbres": 80,
+    "anneePlantation": 1985,
+    "actif": false,
+    "edgeCases": ["INT-03 (Verger inactif / suppression logique)"]
+  },
+  {
+    "code": "VRG-SFX-005",
+    "nom": "Verger Sakiet Ezzit Nouveau",
+    "ownerEmail": "habib.kammoun@sfax.tn",
+    "commune": "Sakiet Ezzit",
+    "localisation": {
+      "type": "Point",
+      "coordinates": [10.76, 34.80]
+    },
+    "precisionGpsMetres": 3.2,
+    "sourcePosition": "AUTO",
+    "surfaceHa": 6.5,
+    "nombreArbres": 110,
+    "anneePlantation": 2018,
+    "actif": true,
+    "edgeCases": ["VER-11 (Coordonnées identiques à un autre verger)"]
+  }
+]

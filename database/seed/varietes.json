@@ -1,0 +1,34 @@
+[
+  {
+    "code": "CHEMLALI",
+    "nom": "Chemlali de Sfax",
+    "seuilMaturite": 0.65,
+    "rendementMoyenTHa": 2.2,
+    "actif": true,
+    "description": "Variété dominante du bassin de Sfax, réputée pour sa résistance à la sécheresse et son huile douce et fruitée."
+  },
+  {
+    "code": "CHETOUI",
+    "nom": "Chétoui",
+    "seuilMaturite": 0.70,
+    "rendementMoyenTHa": 1.8,
+    "actif": true,
+    "description": "Deuxième grande variété tunisienne, arôme fruité intense avec amertume et piquant caractéristiques."
+  },
+  {
+    "code": "ZALMATI",
+    "nom": "Zalmati de Zarzis/Sfax",
+    "seuilMaturite": 0.60,
+    "rendementMoyenTHa": 2.0,
+    "actif": true,
+    "description": "Variété rustique du Sud et Centre-Est tunisien, excellente adaptation au climat aride."
+  },
+  {
+    "code": "OUESLATI",
+    "nom": "Oueslati",
+    "seuilMaturite": 0.68,
+    "rendementMoyenTHa": 1.9,
+    "actif": true,
+    "description": "Variété traditionnelle du Centre tunisien, adaptée à la cueillette précoce."
+  }
+]

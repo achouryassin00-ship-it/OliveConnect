@@ -1,0 +1,51 @@
+[
+  {
+    "vergerCode": "VRG-SFX-001",
+    "nom": "Parcelle Nord A",
+    "varieteCode": "CHEMLALI",
+    "surfaceHa": 8.0,
+    "actif": true
+  },
+  {
+    "vergerCode": "VRG-SFX-001",
+    "nom": "Parcelle Nord B",
+    "varieteCode": "ZALMATI",
+    "surfaceHa": 7.5,
+    "actif": true
+  },
+  {
+    "vergerCode": "VRG-SFX-002",
+    "nom": "Parcelle Mahrès Centre",
+    "varieteCode": "CHEMLALI",
+    "surfaceHa": 8.25,
+    "actif": true
+  },
+  {
+    "vergerCode": "VRG-SFX-003",
+    "nom": "Parcelle Amra Est",
+    "varieteCode": "CHETOUI",
+    "surfaceHa": 12.0,
+    "actif": true
+  },
+  {
+    "vergerCode": "VRG-SFX-003",
+    "nom": "Parcelle Amra Ouest",
+    "varieteCode": "OUESLATI",
+    "surfaceHa": 8.0,
+    "actif": true
+  },
+  {
+    "vergerCode": "VRG-SFX-004",
+    "nom": "Parcelle Sakiet Sud",
+    "varieteCode": "CHEMLALI",
+    "surfaceHa": 5.0,
+    "actif": false
+  },
+  {
+    "vergerCode": "VRG-SFX-005",
+    "nom": "Parcelle Sakiet Oliviers Jeunes",
+    "varieteCode": "CHEMLALI",
+    "surfaceHa": 6.5,
+    "actif": true
+  }
+]

@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
@@ -9,7 +9,21 @@ spring:
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/oliveconnect}
-      auto-index-creation: true
+      database: oliveconnect
+      auto-index-creation: false
+
+oliveconnect:
+  seed:
+    enabled: ${SEED_ENABLED:true}
+    default-password: ${SEED_DEFAULT_PASSWORD:Password123!}
+  geo:
+    sfax:
+      min-lat: 34.30
+      max-lat: 35.40
+      min-lng: 9.80
+      max-lng: 11.20
+  verger:
+    max-surface-ha: 1000.0
 
 jwt:
   secret: ${JWT_SECRET:oliveconnect-secure-jwt-secret-key-sfax-2026-super-safe-minimum-256-bits}

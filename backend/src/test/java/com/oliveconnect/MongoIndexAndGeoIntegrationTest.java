@@ -4,12 +4,14 @@ import com.oliveconnect.config.DataSeeder;
 import com.oliveconnect.config.MongoIndexConfig;
 import com.oliveconnect.dto.RegisterRequest;
 import com.oliveconnect.entity.Parcelle;
+import com.oliveconnect.entity.Recolte;
 import com.oliveconnect.entity.Role;
 import com.oliveconnect.entity.User;
 import com.oliveconnect.entity.Variete;
 import com.oliveconnect.entity.Verger;
 import com.oliveconnect.exception.DuplicateEmailException;
 import com.oliveconnect.repository.ParcelleRepository;
+import com.oliveconnect.repository.RecolteRepository;
 import com.oliveconnect.repository.UserRepository;
 import com.oliveconnect.repository.VarieteRepository;
 import com.oliveconnect.repository.VergerRepository;
@@ -59,6 +61,9 @@ public class MongoIndexAndGeoIntegrationTest {
 
     @Autowired
     private DataSeeder dataSeeder;
+
+    @Autowired
+    private RecolteRepository recolteRepository;
 
     @BeforeEach
     void setUp() {
@@ -116,6 +121,21 @@ public class MongoIndexAndGeoIntegrationTest {
                 .anyMatch(idx -> idx.isUnique() && idx.getIndexFields().stream()
                         .anyMatch(f -> "code".equals(f.getKey())));
         assertTrue(hasUniqueVarieteCode, "L'index unique sur varietes.code doit exister");
+
+        // Recoltes indexes
+        List<IndexInfo> recolteIndexes = mongoTemplate.indexOps(Recolte.class).getIndexInfo();
+        boolean hasUniqueRecolteReference = recolteIndexes.stream()
+                .anyMatch(idx -> idx.isUnique() && idx.getIndexFields().stream()
+                        .anyMatch(f -> "reference".equals(f.getKey())));
+        assertTrue(hasUniqueRecolteReference, "L'index unique sur recoltes.reference doit exister");
+
+        boolean hasActiveDuplicatePartialUnique = recolteIndexes.stream()
+                .anyMatch(idx -> idx.isUnique() && "idx_recoltes_verger_date_active_unique".equals(idx.getName()));
+        assertTrue(hasActiveDuplicatePartialUnique, "L'index partiel unique anti-doublon actif sur recoltes doit exister");
+
+        boolean hasIdempotencyPartialUnique = recolteIndexes.stream()
+                .anyMatch(idx -> idx.isUnique() && "idx_recoltes_owner_idempotency_unique".equals(idx.getName()));
+        assertTrue(hasIdempotencyPartialUnique, "L'index partiel unique d'idempotence sur recoltes doit exister");
     }
 
     @Test
@@ -188,6 +208,7 @@ public class MongoIndexAndGeoIntegrationTest {
         long countUsers1 = userRepository.count();
         long countVergers1 = vergerRepository.count();
         long countParcelles1 = parcelleRepository.count();
+        long countRecoltes1 = recolteRepository.count();
 
         // Deuxième passage du seeder
         dataSeeder.seed();
@@ -195,10 +216,12 @@ public class MongoIndexAndGeoIntegrationTest {
         long countUsers2 = userRepository.count();
         long countVergers2 = vergerRepository.count();
         long countParcelles2 = parcelleRepository.count();
+        long countRecoltes2 = recolteRepository.count();
 
         assertEquals(countVarietes1, countVarietes2, "Le nombre de variétés doit rester strictement identique après un second run");
         assertEquals(countUsers1, countUsers2, "Le nombre d'utilisateurs doit rester strictement identique après un second run");
         assertEquals(countVergers1, countVergers2, "Le nombre de vergers doit rester strictement identique après un second run");
         assertEquals(countParcelles1, countParcelles2, "Le nombre de parcelles doit rester strictement identique après un second run");
+        assertEquals(countRecoltes1, countRecoltes2, "Le nombre de récoltes doit rester strictement identique après un second run");
     }
 }

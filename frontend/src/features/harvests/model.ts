@@ -1,5 +1,7 @@
 import type { HarvestStatus } from "../../types/domain";
-/** UI proposal only: no harvest DTO or endpoint exists in J03. */
+
+export const MAX_ESTIMATED_KG = 500_000;
+
 export interface HarvestDraft {
   orchardId: string;
   desiredDate: string;
@@ -7,6 +9,7 @@ export interface HarvestDraft {
   urgent: boolean;
   justification: string;
 }
+
 export interface OrchardChoice {
   id: string;
   name: string;
@@ -14,17 +17,36 @@ export interface OrchardChoice {
   ownerId: string;
   active: boolean;
 }
+
+export interface HarvestHistoryEntry {
+  previousStatus: HarvestStatus | null;
+  nextStatus: HarvestStatus;
+  actorId: string;
+  actorName: string;
+  actorRole: string;
+  reason: string;
+  timestamp: string;
+}
+
 export interface HarvestRequestView {
   id: string;
+  reference: string;
   ownerId: string;
   orchardId: string;
+  orchardName: string;
+  orchardCode: string;
   desiredDate: string;
   estimatedKg: number | null;
   urgent: boolean;
   justification: string;
   status: HarvestStatus;
+  cancellable: boolean;
+  version: number | null;
+  history: HarvestHistoryEntry[];
   createdAt: string;
+  updatedAt: string | null;
 }
+
 export const emptyDraft: HarvestDraft = {
   orchardId: "",
   desiredDate: "",
@@ -32,6 +54,7 @@ export const emptyDraft: HarvestDraft = {
   urgent: false,
   justification: "",
 };
+
 export const statusLabels: Record<HarvestStatus, string> = {
   DEMANDEE: "À valider",
   VALIDEE: "Validée",
@@ -44,6 +67,7 @@ export const statusLabels: Record<HarvestStatus, string> = {
   ANNULEE: "Annulée",
   INTERROMPUE: "Interrompue",
 };
+
 export function tunisToday(now = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Tunis",
@@ -52,12 +76,14 @@ export function tunisToday(now = new Date()): string {
     day: "2-digit",
   }).format(now);
 }
+
 export function displayDay(value: string) {
   return new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "medium",
     timeZone: "UTC",
   }).format(new Date(`${value}T12:00:00Z`));
 }
+
 export function validateDraft(
   draft: HarvestDraft,
   orchards: OrchardChoice[],
@@ -80,14 +106,17 @@ export function validateDraft(
   )
     errors.desiredDate =
       "Choisissez une date valide, aujourd’hui ou plus tard (heure de Tunis).";
-  if (
-    draft.estimatedKg.trim() &&
-    (!/^\d+(?:[.,]\d{1,3})?$/.test(draft.estimatedKg.trim()) ||
-      !Number.isFinite(Number(draft.estimatedKg.replace(",", "."))) ||
-      Number(draft.estimatedKg.replace(",", ".")) <= 0)
-  )
-    errors.estimatedKg =
-      "Indiquez un poids positif en kg (3 décimales maximum).";
+  if (draft.estimatedKg.trim()) {
+    const numeric = Number(draft.estimatedKg.trim().replace(",", "."));
+    if (
+      !/^\d+(?:[.,]\d{1,3})?$/.test(draft.estimatedKg.trim()) ||
+      !Number.isFinite(numeric) ||
+      numeric <= 0 ||
+      numeric > MAX_ESTIMATED_KG
+    ) {
+      errors.estimatedKg = `Indiquez un poids positif en kg (3 décimales max, plafond ${MAX_ESTIMATED_KG} kg).`;
+    }
+  }
   if (draft.urgent && !draft.justification.trim())
     errors.justification = "Précisez le motif de l’urgence.";
   if (draft.justification.length > 500)

@@ -3,8 +3,8 @@ package com.oliveconnect.controller;
 import com.oliveconnect.dto.*;
 import com.oliveconnect.service.VergerService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -47,6 +47,7 @@ public class VergerController {
      * AUT-02 : Le propriétaire est extrait de la session courante.
      */
     @PostMapping
+    @PreAuthorize("hasRole('AGRICULTEUR')")
     public ResponseEntity<VergerResponseDTO> createVerger(@Valid @RequestBody VergerRequestDTO request) {
         VergerResponseDTO created = vergerService.createVerger(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()

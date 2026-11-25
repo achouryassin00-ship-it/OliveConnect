@@ -2,6 +2,7 @@ package com.oliveconnect.config;
 
 import com.oliveconnect.entity.*;
 import com.oliveconnect.repository.ParcelleRepository;
+import com.oliveconnect.repository.RecolteRepository;
 import com.oliveconnect.repository.UserRepository;
 import com.oliveconnect.repository.VarieteRepository;
 import com.oliveconnect.repository.VergerRepository;
@@ -9,11 +10,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -26,6 +31,7 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final VergerRepository vergerRepository;
     private final ParcelleRepository parcelleRepository;
+    private final RecolteRepository recolteRepository;
     private final PasswordEncoder passwordEncoder;
     private final String defaultPassword;
 
@@ -36,12 +42,14 @@ public class DataSeeder implements CommandLineRunner {
                       UserRepository userRepository,
                       VergerRepository vergerRepository,
                       ParcelleRepository parcelleRepository,
+                      RecolteRepository recolteRepository,
                       PasswordEncoder passwordEncoder,
                       @Value("${oliveconnect.seed.default-password:Password123!}") String defaultPassword) {
         this.varieteRepository = varieteRepository;
         this.userRepository = userRepository;
         this.vergerRepository = vergerRepository;
         this.parcelleRepository = parcelleRepository;
+        this.recolteRepository = recolteRepository;
         this.passwordEncoder = passwordEncoder;
         this.defaultPassword = defaultPassword;
     }
@@ -99,8 +107,73 @@ public class DataSeeder implements CommandLineRunner {
                 new GeoJsonPoint(10.76, 34.80), 3.2, SourcePosition.AUTO, 6.5, 110, 2018, true);
         upsertParcelle(vrg5.getId(), "Parcelle Sakiet Oliviers Jeunes", chemlali.getId(), 6.5, true);
 
-        log.info("Peuplement des données terminé : Variétés={}, Utilisateurs={}, Vergers={}, Parcelles={}",
-                varieteRepository.count(), userRepository.count(), vergerRepository.count(), parcelleRepository.count());
+        // 4. Demandes de collecte initiales (idempotentes par reference)
+        LocalDate todayTunis = LocalDate.now(ZoneId.of("Africa/Tunis"));
+        Instant now = Instant.now();
+
+        upsertRecolte(
+                "REC-SFX-001",
+                ali.getId(),
+                vrg1.getId(),
+                todayTunis.plusDays(3),
+                2400.0,
+                false,
+                null,
+                StatutRecolte.DEMANDEE,
+                List.of(new HistoriqueStatutRecolte(
+                        null, StatutRecolte.DEMANDEE,
+                        ali.getId(), ali.getName(), "AGRICULTEUR",
+                        null, now.minus(2, ChronoUnit.DAYS)
+                ))
+        );
+
+        upsertRecolte(
+                "REC-SFX-002",
+                ali.getId(),
+                vrg2.getId(),
+                todayTunis.plusDays(7),
+                1800.0,
+                false,
+                null,
+                StatutRecolte.PLANIFIEE,
+                List.of(
+                        new HistoriqueStatutRecolte(
+                                null, StatutRecolte.DEMANDEE,
+                                ali.getId(), ali.getName(), "AGRICULTEUR",
+                                null, now.minus(3, ChronoUnit.DAYS)
+                        ),
+                        new HistoriqueStatutRecolte(
+                                StatutRecolte.DEMANDEE, StatutRecolte.VALIDEE,
+                                collecte.getId(), collecte.getName(), "RESPONSABLE_COLLECTE",
+                                "Capacité validée", now.minus(2, ChronoUnit.DAYS)
+                        ),
+                        new HistoriqueStatutRecolte(
+                                StatutRecolte.VALIDEE, StatutRecolte.PLANIFIEE,
+                                collecte.getId(), collecte.getName(), "RESPONSABLE_COLLECTE",
+                                "Intégrée au planning Sfax Sud", now.minus(1, ChronoUnit.DAYS)
+                        )
+                )
+        );
+
+        upsertRecolte(
+                "REC-SFX-003",
+                fatma.getId(),
+                vrg3.getId(),
+                todayTunis.plusDays(4),
+                3100.0,
+                true,
+                "Maturité avancée sur parcelle Amra Est",
+                StatutRecolte.DEMANDEE,
+                List.of(new HistoriqueStatutRecolte(
+                        null, StatutRecolte.DEMANDEE,
+                        fatma.getId(), fatma.getName(), "AGRICULTEUR",
+                        "Maturité avancée sur parcelle Amra Est", now.minus(1, ChronoUnit.DAYS)
+                ))
+        );
+
+        log.info("Peuplement des données terminé : Variétés={}, Utilisateurs={}, Vergers={}, Parcelles={}, Récoltes={}",
+                varieteRepository.count(), userRepository.count(), vergerRepository.count(),
+                parcelleRepository.count(), recolteRepository.count());
     }
 
     private Variete upsertVariete(String code, String nom, Double seuilMaturite, Double rendementMoyenTHa, boolean actif) {
@@ -139,6 +212,25 @@ public class DataSeeder implements CommandLineRunner {
         return parcelleRepository.findByVergerIdAndNom(vergerId, nom).orElseGet(() -> {
             Parcelle p = new Parcelle(null, vergerId, nom, varieteId, surfaceHa, actif);
             return parcelleRepository.save(p);
+        });
+    }
+
+    private Recolte upsertRecolte(String reference, String proprietaireId, String vergerId,
+                                  LocalDate dateSouhaitee, Double quantiteEstimeeKg, boolean urgent,
+                                  String motifUrgence, StatutRecolte statut,
+                                  List<HistoriqueStatutRecolte> historique) {
+        return recolteRepository.findByReference(reference).orElseGet(() -> {
+            Recolte recolte = new Recolte();
+            recolte.setReference(reference);
+            recolte.setProprietaireId(proprietaireId);
+            recolte.setVergerId(vergerId);
+            recolte.setDateSouhaitee(dateSouhaitee);
+            recolte.setQuantiteEstimeeKg(quantiteEstimeeKg);
+            recolte.setUrgent(urgent);
+            recolte.setMotifUrgence(motifUrgence);
+            recolte.setStatut(statut);
+            recolte.setHistorique(historique);
+            return recolteRepository.save(recolte);
         });
     }
 }

@@ -161,12 +161,12 @@ export function Layout() {
           <span className="demo-dot" />
           <strong>
             {connectedScreen
-              ? "Parcours connecté partiellement"
+              ? "Parcours connecté"
               : "Mode démonstration"}
           </strong>
           <span>
             {connectedScreen
-              ? "Auth et vergers : API · Récoltes : indisponibles"
+              ? "Auth, vergers et demandes de collecte : API"
               : "Données fictives sur cet écran · Aucun indicateur réel"}
           </span>
         </div>
@@ -176,7 +176,7 @@ export function Layout() {
         </main>
         <footer>
           OliveConnect <span>Du verger au pressoir, ensemble.</span>
-          <span>Parcours agriculteur · Jour 4</span>
+          <span>Parcours agriculteur · Jour 5</span>
         </footer>
       </div>
     </div>

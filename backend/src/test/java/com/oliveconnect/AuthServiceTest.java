@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -126,5 +127,48 @@ class AuthServiceTest {
         LoginRequest req = new LoginRequest("ali@sfax.tn", "secret123");
         assertThatThrownBy(() -> authService.login(req))
                 .isInstanceOf(AccountDisabledException.class);
+    }
+
+    @Test
+    @DisplayName("Sécurité : l'inscription publique refuse un rôle privilégié (ADMINISTRATEUR)")
+    void testRegisterRejectsPrivilegedRole() {
+        RegisterRequest req = new RegisterRequest("Malicious User", "hacker@sfax.tn", "secret123", Set.of(Role.ADMINISTRATEUR));
+        when(userRepository.existsByEmail("hacker@sfax.tn")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.register(req))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Sécurité : l'inscription publique refuse le cumul AGRICULTEUR + RESPONSABLE_COLLECTE")
+    void testRegisterRejectsMixedPrivilegedRole() {
+        RegisterRequest req = new RegisterRequest(
+                "Malicious User",
+                "hacker2@sfax.tn",
+                "secret123",
+                Set.of(Role.AGRICULTEUR, Role.RESPONSABLE_COLLECTE)
+        );
+        when(userRepository.existsByEmail("hacker2@sfax.tn")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.register(req))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Inscription sans rôle explicite : attribue uniquement AGRICULTEUR")
+    void testRegisterDefaultsOnlyToAgriculteur() {
+        RegisterRequest req = new RegisterRequest("Salma Ben", "salma@sfax.tn", "secret123", null);
+        when(userRepository.existsByEmail("salma@sfax.tn")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setId("user-salma");
+            return u;
+        });
+        when(jwtService.generateToken(anyString(), anyString(), any())).thenReturn("mock-token");
+
+        AuthResponse resp = authService.register(req);
+        assertThat(resp.getUser().getRoles()).containsExactly(Role.AGRICULTEUR);
     }
 }

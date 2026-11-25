@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Search, Sprout } from "lucide-react";
 import { useAuth } from "../../auth/context";
 import type { Session } from "../../auth/context";
 import { apiEnabled } from "../../api/config";
 import { ApiError } from "../../api/client";
-import { loadOwnedVergers, vergersApi } from "../../api/vergers";
+import { harvestCapabilities, harvestsApi } from "../../api/harvests";
+import { loadOwnedVergers } from "../../api/vergers";
 import { Badge, PageHeading, Panel, DataState } from "../../components/ui";
 import { LoginForm } from "../../components/LoginForm";
 import {
@@ -14,12 +15,14 @@ import {
   demoOrchardChoices,
 } from "../../demo/harvests";
 import { date, number } from "../../lib/format";
+import type { HarvestStatus } from "../../types/domain";
 import {
   displayDay,
   emptyDraft,
   statusLabels,
   type OrchardChoice,
   type HarvestDraft,
+  type HarvestRequestView,
 } from "./model";
 import { HarvestForm } from "./HarvestForm";
 import { HarvestDetails } from "./HarvestDetails";
@@ -37,6 +40,7 @@ export function HarvestPage({ forceDemo = false }: { forceDemo?: boolean }) {
     />
   );
 }
+
 function HarvestWorkspace({
   demo,
   session,
@@ -55,22 +59,40 @@ function HarvestWorkspace({
       ? demoOrchardChoices.filter((v) => v.active && v.ownerId === demoFarmerId)
       : [],
   );
-  const [loading, setLoading] = useState(!demo);
-  const [error, setError] = useState("");
-  const [reload, setReload] = useState(0);
-  const [rows, setRows] = useState(
+  const [orchardsLoading, setOrchardsLoading] = useState(!demo);
+  const [orchardsError, setOrchardsError] = useState("");
+  const [orchardsReload, setOrchardsReload] = useState(0);
+
+  const [rows, setRows] = useState<HarvestRequestView[]>(
     demo ? demoHarvestRequests.filter((r) => r.ownerId === demoFarmerId) : [],
   );
+  const [listLoading, setListLoading] = useState(!demo);
+  const [listError, setListError] = useState("");
+  const [listReload, setListReload] = useState(0);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+
+  const [selectedDetail, setSelectedDetail] =
+    useState<HarvestRequestView | null>(null);
+  const [detailError, setDetailError] = useState("");
+  const [detailNotFound, setDetailNotFound] = useState(false);
+  const [detailReload, setDetailReload] = useState(0);
+
   const [draft, setDraft] = useState<HarvestDraft>({ ...emptyDraft });
+  const idempotencyKeyRef = useRef<string | null>(null);
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
-  const [type, setType] = useState("");
+  const [status, setStatus] = useState<HarvestStatus | "">("");
+  const [type, setType] = useState<"" | "normal" | "urgent">("");
   const [preview, setPreview] = useState("ready");
+
   const token = session?.token;
+  const expired = !!session?.expired;
   const farmer = !!session?.user.roles.includes("AGRICULTEUR");
+
   useEffect(() => {
-    if (demo || !token || !farmer) return;
+    if (demo || !token || expired || !farmer) return;
     const controller = new AbortController();
     loadOwnedVergers(token, ownerId, controller.signal)
       .then((result) => {
@@ -84,13 +106,13 @@ function HarvestWorkspace({
             active: v.actif,
           })),
         );
-        setLoading(false);
-        setError("");
+        setOrchardsLoading(false);
+        setOrchardsError("");
       })
       .catch((e) => {
         if (controller.signal.aborted) return;
-        setLoading(false);
-        setError(
+        setOrchardsLoading(false);
+        setOrchardsError(
           e instanceof ApiError
             ? e.message
             : "Impossible de charger vos vergers.",
@@ -98,22 +120,134 @@ function HarvestWorkspace({
         if (e instanceof ApiError && e.status === 401) expire();
       });
     return () => controller.abort();
-  }, [demo, token, farmer, ownerId, reload, expire]);
-  function retry() {
-    setLoading(true);
-    setError("");
-    setReload((n) => n + 1);
+  }, [demo, token, expired, farmer, ownerId, orchardsReload, expire]);
+
+  useEffect(() => {
+    if (
+      demo ||
+      !harvestCapabilities.list ||
+      !token ||
+      expired ||
+      !farmer ||
+      subpath !== ""
+    )
+      return;
+    const controller = new AbortController();
+    harvestsApi
+      .list(
+        token,
+        {
+          page,
+          size: 20,
+          q: query,
+          statut: status,
+          urgent: type === "" ? "" : type === "urgent",
+        },
+        controller.signal,
+      )
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setRows(result.items);
+        setTotalPages(result.totalPages);
+        setTotalElements(result.totalElements);
+        setListLoading(false);
+        setListError("");
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        setListLoading(false);
+        setListError(
+          e instanceof ApiError
+            ? e.message
+            : "Impossible de charger vos demandes de collecte.",
+        );
+        if (e instanceof ApiError && e.status === 401) expire();
+      });
+    return () => controller.abort();
+  }, [
+    demo,
+    token,
+    expired,
+    farmer,
+    subpath,
+    page,
+    query,
+    status,
+    type,
+    listReload,
+    expire,
+  ]);
+
+  useEffect(() => {
+    if (
+      demo ||
+      !token ||
+      expired ||
+      !farmer ||
+      !subpath ||
+      subpath === "nouvelle"
+    )
+      return;
+    const controller = new AbortController();
+    harvestsApi
+      .get(token, subpath, controller.signal)
+      .then((item) => {
+        if (controller.signal.aborted) return;
+        setSelectedDetail(item);
+        setDetailError("");
+        setDetailNotFound(false);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof ApiError && e.status === 404) {
+          setSelectedDetail(null);
+          setDetailNotFound(true);
+          setDetailError("");
+        } else {
+          setDetailError(
+            e instanceof ApiError
+              ? e.message
+              : "Impossible de charger le détail de cette demande.",
+          );
+          if (e instanceof ApiError && e.status === 401) expire();
+        }
+      });
+    return () => controller.abort();
+  }, [demo, token, expired, farmer, subpath, detailReload, expire]);
+
+  function retryOrchards() {
+    setOrchardsLoading(true);
+    setOrchardsError("");
+    setOrchardsReload((n) => n + 1);
   }
+
+  function retryList() {
+    setListLoading(true);
+    setListError("");
+    setListReload((n) => n + 1);
+  }
+
+  function retryDetail() {
+    setDetailError("");
+    setDetailNotFound(false);
+    setSelectedDetail(null);
+    setDetailReload((n) => n + 1);
+  }
+
   async function submit(value: HarvestDraft) {
     setNotice("");
     if (demo) {
       const id = `LOCAL-${crypto.randomUUID().slice(0, 8)}`;
+      const chosen = orchards.find((v) => v.id === value.orchardId);
       setRows((current) => [
         ...current,
         {
           id,
+          reference: id,
           ownerId,
           orchardId: value.orchardId,
+          orchardName: chosen?.name || "",
+          orchardCode: chosen?.code || "",
           desiredDate: value.desiredDate,
           estimatedKg: value.estimatedKg.trim()
             ? Number(value.estimatedKg.replace(",", "."))
@@ -121,7 +255,11 @@ function HarvestWorkspace({
           urgent: value.urgent,
           justification: value.urgent ? value.justification.trim() : "",
           status: "DEMANDEE",
+          cancellable: false,
+          version: null,
+          history: [],
           createdAt: new Date().toISOString(),
+          updatedAt: null,
         },
       ]);
       setDraft({ ...emptyDraft });
@@ -135,46 +273,101 @@ function HarvestWorkspace({
       throw new ApiError(
         401,
         "UNAUTHORIZED",
-        "Reconnectez-vous pour vérifier ce brouillon.",
+        "Reconnectez-vous pour envoyer cette demande.",
       );
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = crypto.randomUUID();
+    }
     try {
-      // Recheck ownership/active state with the real backend, even after the options were loaded.
-      const orchard = await vergersApi.get(session.token, value.orchardId);
-      if (!orchard.actif || orchard.proprietaireId !== ownerId)
-        throw new ApiError(
-          404,
-          "RESOURCE_NOT_FOUND",
-          "Ce verger n’est plus disponible pour votre compte.",
-        );
+      const created = await harvestsApi.create(
+        session.token,
+        value,
+        idempotencyKeyRef.current,
+      );
+      idempotencyKeyRef.current = null;
+      setDraft({ ...emptyDraft });
+      setPage(0);
+      setListLoading(true);
+      setListReload((n) => n + 1);
       setNotice(
-        "Brouillon vérifié avec votre verger actuel. Aucun envoi effectué : l’API de récoltes reste à développer au Jour 5.",
+        `Demande de collecte enregistrée (${created.reference || created.id}).`,
+      );
+      navigate(base);
+    } catch (e) {
+      if (e instanceof ApiError) {
+        if (e.status === 401) {
+          expire();
+        } else if (e.status === 400 || e.status === 404 || e.status === 409) {
+          // Une erreur métier impose une nouvelle clé si l'agriculteur corrige et renvoie.
+          idempotencyKeyRef.current = null;
+        }
+      }
+      throw e;
+    }
+  }
+
+  async function cancelRequest(request: HarvestRequestView, reason: string) {
+    if (!session?.token || session.expired) {
+      expire();
+      throw new ApiError(
+        401,
+        "UNAUTHORIZED",
+        "Reconnectez-vous pour annuler cette demande.",
+      );
+    }
+    try {
+      const updated = await harvestsApi.cancel(session.token, request.id, {
+        version: request.version,
+        motif: reason,
+      });
+      setSelectedDetail(updated);
+      setRows((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      setNotice(
+        `La demande ${updated.reference || updated.id} a été annulée.`,
       );
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) expire();
       throw e;
     }
   }
+
   const normalize = (value: string) =>
     value
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .toLocaleLowerCase("fr");
-  const filtered = rows.filter(
+
+  const filteredDemo = rows.filter(
     (r) =>
       r.ownerId === ownerId &&
       normalize(
-        `${r.id} ${orchards.find((v) => v.id === r.orchardId)?.name || ""}`,
+        `${r.id} ${r.reference} ${r.orchardName || orchards.find((v) => v.id === r.orchardId)?.name || ""}`,
       ).includes(normalize(query)) &&
       (!status || r.status === status) &&
       (!type || r.urgent === (type === "urgent")),
   );
+
+  const isDetailLoading =
+    !demo &&
+    !!subpath &&
+    subpath !== "nouvelle" &&
+    !detailNotFound &&
+    !detailError &&
+    selectedDetail?.id !== subpath;
+
+  const displayedRows = demo ? filteredDemo : rows;
+
   return (
     <>
       <PageHeading
         eyebrow="ESPACE AGRICULTEUR"
         title={
           subpath === "nouvelle"
-            ? "Préparer une collecte"
+            ? demo
+              ? "Préparer une collecte"
+              : "Nouvelle demande de collecte"
             : subpath
               ? "Détail de la demande"
               : "Mes demandes de collecte"
@@ -194,12 +387,12 @@ function HarvestWorkspace({
           <strong>
             {demo
               ? "Démonstration interactive · profil agriculteur fictif"
-              : "Vergers connectés · demandes non connectées"}
+              : "Espace agriculteur connecté"}
           </strong>
           <p>
             {demo
               ? "Exemples en mémoire uniquement. Aucun enregistrement dans MongoDB."
-              : "L’authentification et les vergers utilisent Spring Boot. La création, la liste et les statuts des récoltes attendent le Jour 5."}
+              : "Authentification, vergers, demandes de collecte, historique et annulation connectés à Spring Boot et MongoDB."}
           </p>
         </div>
       </div>
@@ -225,8 +418,8 @@ function HarvestWorkspace({
             <Panel title="Session expirée">
               <div className="card-body">
                 <p role="alert">
-                  Reconnectez-vous. Votre brouillon reste en mémoire sur cet
-                  écran pour ce compte.
+                  Reconnectez-vous. Votre saisie reste en mémoire sur cet écran
+                  pour ce compte.
                 </p>
                 <LoginForm />
               </div>
@@ -237,10 +430,10 @@ function HarvestWorkspace({
               {notice}
             </p>
           )}
-          {error && !session?.expired && (
+          {orchardsError && !session?.expired && (
             <div className="form-error" role="alert">
-              <p>{error} Votre brouillon est conservé.</p>
-              <button onClick={retry}>
+              <p>{orchardsError} Votre saisie est conservée.</p>
+              <button type="button" onClick={retryOrchards}>
                 Réessayer le chargement des vergers
               </button>
             </div>
@@ -248,9 +441,7 @@ function HarvestWorkspace({
           {subpath === "nouvelle" ? (
             <Panel
               title={
-                demo
-                  ? "Nouvel exemple de demande"
-                  : "Brouillon · transmission indisponible"
+                demo ? "Nouvel exemple de demande" : "Déclarer une récolte"
               }
               action={
                 <Link className="text-link" to={base}>
@@ -258,7 +449,7 @@ function HarvestWorkspace({
                 </Link>
               }
             >
-              {loading && !demo && (
+              {orchardsLoading && !demo && (
                 <p role="status" className="card-body">
                   Chargement de vos vergers…
                 </p>
@@ -266,13 +457,17 @@ function HarvestWorkspace({
               <HarvestForm
                 draft={draft}
                 onChange={(value) => {
+                  idempotencyKeyRef.current = null;
                   setDraft(value);
                   setNotice("");
                 }}
                 orchards={orchards}
                 ownerId={ownerId}
                 demo={demo}
-                disabled={!demo && (loading || !!error || !!session?.expired)}
+                disabled={
+                  !demo &&
+                  (orchardsLoading || !!orchardsError || !!session?.expired)
+                }
                 onSubmit={submit}
               />
             </Panel>
@@ -284,33 +479,57 @@ function HarvestWorkspace({
                 )}
                 orchards={orchards}
                 base={base}
+                demo
               />
-            ) : (
-              <Panel title="Détail indisponible">
-                <p className="card-body">
-                  L’API de détail de récolte n’existe pas encore. Aucun appel ni
-                  historique fictif n’est présenté ici.
+            ) : isDetailLoading ? (
+              <Panel title="Détail de la demande">
+                <p role="status" className="card-body">
+                  Chargement de la demande…
                 </p>
               </Panel>
+            ) : detailError ? (
+              <Panel title="Détail indisponible">
+                <div className="card-body">
+                  <p className="form-error" role="alert">
+                    {detailError}
+                  </p>
+                  <button type="button" onClick={retryDetail}>
+                    Réessayer
+                  </button>
+                </div>
+              </Panel>
+            ) : (
+              <HarvestDetails
+                request={detailNotFound ? undefined : selectedDetail || undefined}
+                orchards={orchards}
+                base={base}
+                onCancel={cancelRequest}
+              />
             )
-          ) : demo ? (
+          ) : (
             <>
               <div className="toolbar">
                 <span className="muted">
-                  {rows.length} exemples pour ce profil
+                  {demo
+                    ? `${rows.length} exemples pour ce profil`
+                    : listLoading
+                      ? "Chargement de vos demandes…"
+                      : `${totalElements} demande(s) · ${orchards.length} verger(s) actif(s)`}
                 </span>
-                <label>
-                  État de l’interface
-                  <select
-                    value={preview}
-                    onChange={(e) => setPreview(e.target.value)}
-                  >
-                    <option value="ready">Avec données</option>
-                    <option value="loading">Chargement (simulé)</option>
-                    <option value="empty">Aucune donnée</option>
-                    <option value="error">Erreur (simulée)</option>
-                  </select>
-                </label>
+                {demo && (
+                  <label>
+                    État de l’interface
+                    <select
+                      value={preview}
+                      onChange={(e) => setPreview(e.target.value)}
+                    >
+                      <option value="ready">Avec données</option>
+                      <option value="loading">Chargement (simulé)</option>
+                      <option value="empty">Aucune donnée</option>
+                      <option value="error">Erreur (simulée)</option>
+                    </select>
+                  </label>
+                )}
               </div>
               <Panel title="Demandes de récolte">
                 <div className="harvest-filters">
@@ -320,7 +539,10 @@ function HarvestWorkspace({
                       aria-label="Rechercher une collecte"
                       placeholder="Référence ou verger…"
                       value={query}
-                      onChange={(e) => setQuery(e.target.value)}
+                      onChange={(e) => {
+                        setQuery(e.target.value);
+                        setPage(0);
+                      }}
                     />
                   </label>
                   <label>
@@ -328,7 +550,10 @@ function HarvestWorkspace({
                     <select
                       aria-label="Statut"
                       value={status}
-                      onChange={(e) => setStatus(e.target.value)}
+                      onChange={(e) => {
+                        setStatus(e.target.value as HarvestStatus | "");
+                        setPage(0);
+                      }}
                     >
                       <option value="">Tous les statuts</option>
                       {Object.entries(statusLabels).map(([key, label]) => (
@@ -343,7 +568,10 @@ function HarvestWorkspace({
                     <select
                       aria-label="Type"
                       value={type}
-                      onChange={(e) => setType(e.target.value)}
+                      onChange={(e) => {
+                        setType(e.target.value as "" | "normal" | "urgent");
+                        setPage(0);
+                      }}
                     >
                       <option value="">Tous les types</option>
                       <option value="normal">Normale</option>
@@ -351,104 +579,141 @@ function HarvestWorkspace({
                     </select>
                   </label>
                 </div>
-                {preview !== "ready" ? (
+                {demo && preview !== "ready" ? (
                   <DataState
                     state={preview as "loading" | "empty" | "error"}
                     onRetry={() => setPreview("ready")}
                   />
-                ) : filtered.length === 0 ? (
+                ) : !demo && listLoading ? (
+                  <p role="status" className="card-body">
+                    Chargement de vos demandes de collecte…
+                  </p>
+                ) : !demo && listError ? (
+                  <div className="card-body">
+                    <div className="form-error" role="alert">
+                      <p>{listError}</p>
+                      <button type="button" onClick={retryList}>
+                        Réessayer le chargement des demandes
+                      </button>
+                    </div>
+                  </div>
+                ) : displayedRows.length === 0 ? (
                   <DataState state="empty" />
                 ) : (
-                  <div className="table-scroll">
-                    <table className="harvest-table">
-                      <caption className="sr-only">
-                        Demandes fictives du profil agriculteur de démonstration
-                      </caption>
-                      <thead>
-                        <tr>
-                          <th>Demande / verger</th>
-                          <th>Date souhaitée</th>
-                          <th>Estimation</th>
-                          <th>Type</th>
-                          <th>Statut</th>
-                          <th>Création</th>
-                          <th>Détail</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filtered.map((r) => (
-                          <tr key={r.id}>
-                            <td>
-                              <strong>
-                                {
-                                  orchards.find((v) => v.id === r.orchardId)
-                                    ?.name
-                                }
-                              </strong>
-                              <small>{r.id}</small>
-                            </td>
-                            <td>{displayDay(r.desiredDate)}</td>
-                            <td>
-                              {r.estimatedKg === null
-                                ? "Non renseignée"
-                                : `${number(r.estimatedKg)} kg`}
-                            </td>
-                            <td>
-                              <Badge tone={r.urgent ? "red" : "gray"}>
-                                {r.urgent ? "Urgente" : "Normale"}
-                              </Badge>
-                            </td>
-                            <td>
-                              <Badge
-                                tone={
-                                  r.status === "DEMANDEE" ? "amber" : "green"
-                                }
-                              >
-                                {statusLabels[r.status]}
-                              </Badge>
-                            </td>
-                            <td>{date(r.createdAt)}</td>
-                            <td>
-                              <Link
-                                className="text-link detail-link"
-                                aria-label={`Voir ${r.id}`}
-                                to={`${base}/${r.id}`}
-                              >
-                                Consulter
-                              </Link>
-                            </td>
+                  <>
+                    <div className="table-scroll">
+                      <table className="harvest-table">
+                        <caption className="sr-only">
+                          {demo
+                            ? "Demandes fictives du profil agriculteur de démonstration"
+                            : "Demandes de collecte enregistrées pour votre compte"}
+                        </caption>
+                        <thead>
+                          <tr>
+                            <th>Demande / verger</th>
+                            <th>Date souhaitée</th>
+                            <th>Estimation</th>
+                            <th>Type</th>
+                            <th>Statut</th>
+                            <th>Création</th>
+                            <th>Détail</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {displayedRows.map((r) => (
+                            <tr key={r.id}>
+                              <td>
+                                <strong>
+                                  {r.orchardName ||
+                                    orchards.find((v) => v.id === r.orchardId)
+                                      ?.name ||
+                                    "Verger"}
+                                </strong>
+                                <small>{r.reference || r.id}</small>
+                              </td>
+                              <td>{displayDay(r.desiredDate)}</td>
+                              <td>
+                                {r.estimatedKg === null
+                                  ? "Non renseignée"
+                                  : `${number(r.estimatedKg)} kg`}
+                              </td>
+                              <td>
+                                <Badge tone={r.urgent ? "red" : "gray"}>
+                                  {r.urgent ? "Urgente" : "Normale"}
+                                </Badge>
+                              </td>
+                              <td>
+                                <Badge
+                                  tone={
+                                    r.status === "ANNULEE" ||
+                                    r.status === "REFUSEE"
+                                      ? "red"
+                                      : r.status === "DEMANDEE"
+                                        ? "amber"
+                                        : "green"
+                                  }
+                                >
+                                  {statusLabels[r.status]}
+                                </Badge>
+                              </td>
+                              <td>{date(r.createdAt)}</td>
+                              <td>
+                                <Link
+                                  className="text-link detail-link"
+                                  aria-label={`Voir ${r.reference || r.id}`}
+                                  to={`${base}/${r.id}`}
+                                  onClick={() => {
+                                    if (!demo) {
+                                      setDetailError("");
+                                      setDetailNotFound(false);
+                                    }
+                                  }}
+                                >
+                                  Consulter
+                                </Link>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {!demo && totalPages > 1 && (
+                      <div className="pagination-bar">
+                        <button
+                          type="button"
+                          disabled={page <= 0}
+                          onClick={() => {
+                            setListLoading(true);
+                            setPage((p) => Math.max(0, p - 1));
+                          }}
+                        >
+                          Précédent
+                        </button>
+                        <span className="muted">
+                          Page {page + 1} sur {totalPages}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={page + 1 >= totalPages}
+                          onClick={() => {
+                            setListLoading(true);
+                            setPage((p) => p + 1);
+                          }}
+                        >
+                          Suivant
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </Panel>
             </>
-          ) : (
-            <Panel title="Suivi des demandes · prochainement">
-              <div className="card-body">
-                <p>
-                  Aucune liste réelle de récoltes n’est accessible avec le
-                  backend actuel. Cela ne signifie pas que votre compte ne
-                  possède aucune demande.
-                </p>
-                <p>
-                  {loading
-                    ? "Chargement de vos vergers…"
-                    : `${orchards.length} verger(s) actif(s) accessible(s) pour préparer un brouillon.`}
-                </p>
-                <Link className="text-link" to="/demo/collectes">
-                  Explorer un jeu de demandes fictives séparé
-                </Link>
-              </div>
-            </Panel>
           )}
           {demo && (
             <p className="footnote">
-              Les statuts et champs de cet aperçu sont provisoires ; leur
-              contrat serveur sera validé avec Ben Ayed. Annulation et
-              historique ne sont pas disponibles.
+              Les statuts et champs de cet aperçu sont provisoires ; espace de
+              démonstration séparé des données MongoDB. Annulation et historique
+              ne sont disponibles que sur l’espace connecté.
             </p>
           )}
         </>

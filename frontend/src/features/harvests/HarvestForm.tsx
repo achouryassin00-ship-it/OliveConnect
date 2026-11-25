@@ -1,11 +1,13 @@
 import { useRef, useState, type FormEvent } from "react";
 import { ApiError } from "../../api/client";
+import { harvestCapabilities } from "../../api/harvests";
 import {
   tunisToday,
   validateDraft,
   type HarvestDraft,
   type OrchardChoice,
 } from "./model";
+
 export function HarvestForm({
   draft,
   onChange,
@@ -30,6 +32,8 @@ export function HarvestForm({
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const form = useRef<HTMLFormElement>(null);
+  const canCreate = demo || harvestCapabilities.create;
+
   function update<K extends keyof HarvestDraft>(
     key: K,
     value: HarvestDraft[K],
@@ -38,9 +42,10 @@ export function HarvestForm({
     setErrors((e) => ({ ...e, [key]: undefined }));
     setFailure("");
   }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (lock.current || disabled) return;
+    if (lock.current || disabled || !canCreate) return;
     const found = validateDraft(draft, orchards, ownerId);
     setErrors(found);
     setFailure("");
@@ -68,6 +73,7 @@ export function HarvestForm({
       setBusy(false);
     }
   }
+
   const own = orchards.filter((v) => v.active && v.ownerId === ownerId);
   return (
     <form
@@ -78,8 +84,9 @@ export function HarvestForm({
       aria-busy={busy}
     >
       <p className="muted">
-        Les champs marqués * sont nécessaires pour vérifier ce brouillon. Aucune
-        règle serveur de récolte n’est encore disponible.
+        {demo
+          ? "Les champs marqués * sont requis pour ajouter un exemple local en mémoire."
+          : "Les champs marqués * sont requis pour transmettre votre demande à la coopérative."}
       </p>
       {failure && (
         <div className="form-error" role="alert">
@@ -146,7 +153,8 @@ export function HarvestForm({
               aria-describedby="weight-hint weight-error"
             />
             <small id="weight-hint">
-              Facultative dans cet aperçu ; obligation à valider au Jour 5.
+              Facultative ; si renseignée, poids positif en kg (3 décimales
+              maximum).
             </small>
             {errors.estimatedKg && (
               <span id="weight-error" className="field-error">
@@ -184,17 +192,22 @@ export function HarvestForm({
           </>
         )}
         <div className="form-actions">
-          <button type="submit" disabled={busy || disabled || own.length === 0}>
+          <button
+            type="submit"
+            disabled={busy || disabled || !canCreate || own.length === 0}
+          >
             {busy
-              ? "Vérification en cours…"
+              ? demo
+                ? "Ajout en cours…"
+                : "Envoi en cours…"
               : demo
                 ? "Ajouter un exemple local"
-                : "Vérifier le brouillon"}
+                : "Envoyer la demande"}
           </button>
           <span className="muted">
             {demo
               ? "Simulation en mémoire · aucun envoi"
-              : "Transmission indisponible au Jour 4"}
+              : "Enregistrement sécurisé côté serveur"}
           </span>
         </div>
       </fieldset>

@@ -19,6 +19,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -171,5 +172,19 @@ class AuthControllerTest {
     void testLogout() throws Exception {
         mockMvc.perform(post("/api/auth/logout"))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/register avec rôle privilégié : retourne 403 ACCESS_DENIED")
+    void testRegisterPrivilegedRoleForbidden() throws Exception {
+        RegisterRequest req = new RegisterRequest("Evil", "evil@sfax.tn", "password123", Set.of(Role.ADMINISTRATEUR));
+        when(authService.register(any(RegisterRequest.class)))
+                .thenThrow(new AccessDeniedException("L'inscription publique attribue uniquement le rôle AGRICULTEUR."));
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
 }

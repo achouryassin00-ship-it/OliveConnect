@@ -1,62 +1,77 @@
-# Passation — Jour 4 vers Jour 5
+# Passation — Jour 5 vers Jour 6
 
-- Auteur : Yassine Achour. Lot Jour 4, réalisé le 25 novembre 2026.
-- Branche : `feat/j04-harvest-requests-ui`, créée depuis `origin/main` (`87c6609`, PR J01/J02/J03 fusionnées).
-- Livraison : commit(s) locaux et description `docs/PR_J04.md`. Aucun push, aucune PR distante J04, aucune fusion sans confirmation.
-- Archive du travail de Ben Slima : `docs/HANDOFF_J03.md`.
+- **Auteur sortant (Jour 5)** : Ben Ayed.
+- **Prochain responsable (Jour 6)** : Ben Slima (Tournées, Ressources & Suite).
+- **Branche** : `feat/j05-harvest-api`, créée depuis `main` (`40cfa2b`, incluant PR #4 J04).
+- **Livraison** : commits locaux uniquement et résumé PR dans [docs/PR_J05.md](docs/PR_J05.md) (aucun push ni fusion sans confirmation).
+- **Archives** : [docs/HANDOFF_J03.md](docs/HANDOFF_J03.md), [docs/HANDOFF_J04.md](docs/HANDOFF_J04.md).
 
-## 1. Ce qui existait
+---
 
-Frontend React/Vite/TypeScript de démonstration (J01). Backend Spring Boot avec JWT/BCrypt, login/register/me/logout (J02). MongoDB : users/vergers/parcelles/varietes, index, seeder et API Vergers avec contrôle propriétaire/actif (J03). Aucun modèle, DTO, endpoint ou historique de récolte. Les 52 tests Maven hérités ont été exécutés avec succès avant modification ; 5 tests Vitest et 2 Playwright hérités également passants.
+## 1. Sécurité & Correctifs Prioritaires Réalisés
 
-## 2. Réalisé au Jour 4
+1. **Élévation de privilèges sur inscription publique (`AuthService.register`)** :
+   - Toute demande contenant un rôle différent de `AGRICULTEUR` est rejetée en `403 ACCESS_DENIED`.
+   - Le compte créé reçoit systématiquement uniquement `Role.AGRICULTEUR`.
+2. **Autorisation sur création de vergers (`VergerController.createVerger`)** :
+   - Ajout de `@PreAuthorize("hasRole('AGRICULTEUR')")`.
+   - `proprietaireId` reste déduit uniquement du principal authentifié (`AUT-02`).
+3. **Sécurité `SecurityService`** :
+   - Rejet explicite des jetons `AnonymousAuthenticationToken`.
+4. **CORS (`SecurityConfig`)** :
+   - Autorisation de l'en-tête `Idempotency-Key` et exposition de `X-Idempotent-Replay`.
+5. **Gestion d'erreurs JSON/types (`GlobalExceptionHandler`)** :
+   - `HttpMessageNotReadableException` et `MethodArgumentTypeMismatchException` retournent `400 VALIDATION_ERROR` au lieu de `500`.
 
-- Liste de demandes fictives avec identifiant, verger, date souhaitée, quantité facultative, type, statut et création ; recherche insensible aux accents, filtres statut/type, états vide/chargement/erreur.
-- Formulaire accessible et responsive : verger actif du propriétaire, date valide au moins égale au jour de Tunis, quantité positive avec virgule décimale, motif d’urgence et longueur de texte contrôlés. Champs provisoires à valider au J05, distincts du contrat J03.
-- Détail de demande fictive. Aucun historique inventé et aucune action d’annulation, faute d’API correspondante.
-- Connexion réelle et session en mémoire. Reconnexion après 401 sans perdre le brouillon sur l’écran ; changement de compte et déconnexion effacent l’ancien état. Aucun token dans localStorage/sessionStorage.
-- Mode API : charge tous les vergers paginés, filtre propriétaire/actif, revérifie le verger lors de « Vérifier le brouillon ». Aucun POST de récolte, aucun succès d’enregistrement fictif.
-- Mode démo séparé : ajout d’exemples uniquement en mémoire, explicitement perdus en quittant cet espace ou en rechargeant. Pas de repli automatique après erreur API.
+---
 
-## 3. Fichiers
+## 2. API Demandes de Collecte (`/api/recoltes`) & MongoDB
 
-Créés : `src/api/{auth,config,harvests,vergers}.ts`, `vergers.test.ts`, `src/auth/`, `src/components/LoginForm.tsx`, `src/types/api.ts`, `src/demo/harvests.ts`, `src/features/harvests/` (page, formulaire, détail, modèle, tests, CSS), `e2e/{harvests.spec,api-harvests.spec,live}.ts`, `playwright.live.config.ts`, `scripts/verify-live.py` sous frontend. Documents : `docs/J04_INTEGRATION.md`, `docs/PR_J04.md`, archive `docs/HANDOFF_J03.md`.
+- **Collection `recoltes`** (`Recolte`, `HistoriqueStatutRecolte`, `StatutRecolte`) et `RecolteRepository`.
+- **Index MongoDB (`MongoIndexConfig`)** :
+  - `idx_recoltes_reference_unique` (unique sur `reference`)
+  - `idx_recoltes_owner_statut_date` (`{ proprietaireId: 1, statut: 1, dateSouhaitee: 1 }`)
+  - `idx_recoltes_verger_statut` (`{ vergerId: 1, statut: 1 }`)
+  - `idx_recoltes_verger_date_active_unique` (unique partiel `{ vergerId: 1, dateSouhaitee: 1 }` pour statuts `DEMANDEE`, `VALIDEE`, `PLANIFIEE`, `EN_COURS`)
+  - `idx_recoltes_owner_idempotency_unique` (unique partiel `{ proprietaireId: 1, idempotencyKey: 1 }` pour `idempotencyKey` string)
+- **Endpoints disponibles** :
+  - `POST /api/recoltes` (`AGRICULTEUR`) : création avec dérivation stricte du propriétaire, contrôle verger existant/propre/actif (`404` anti-IDOR / `400` inactif), date `>= aujourd'hui (Africa/Tunis)`, quantité facultative (`> 0`, `≤ 500 000 kg`, 3 décimales max), motif obligatoire si `urgent`, anti-doublon actif (`409`) et idempotence `Idempotency-Key` (`201` ou `200` + `X-Idempotent-Replay: true`, `409` si payload différent).
+  - `GET /api/recoltes` (`AGRICULTEUR` filtré par propriétaire ; `RESPONSABLE_COLLECTE` / `ADMINISTRATEUR` vue globale) : pagination + filtres `q`, `statut`, `urgent`, `vergerId`, `dateDebut`, `dateFin`.
+  - `GET /api/recoltes/{id}` : détail + `historique` réellement persisté (`404` anti-IDOR).
+  - `POST /api/recoltes/{id}/annuler` : annulation autorisée uniquement depuis `DEMANDEE` ou `VALIDEE`, avec verrouillage optimiste `@Version` et trace d'historique (`409` depuis `PLANIFIEE`, `EN_COURS`, etc.).
+  - `POST /api/recoltes/{id}/transitions` : transitions J05 (`VALIDEE`/`REFUSEE` par staff depuis `DEMANDEE`, `ANNULEE` depuis `DEMANDEE`/`VALIDEE` ; autres refusées en `409`).
+- **Remplacement du checker provisoire** :
+  - `RecolteVergerUsageChecker` (`@Service @Primary`) interroge `RecolteRepository.existsByVergerIdAndStatutIn` pour bloquer en `409` la suppression logique d'un verger ayant des demandes actives.
+- **DataSeeder idempotent** :
+  - Ajout de 3 demandes initiales (`REC-SFX-001` à `REC-SFX-003`) avec historique pour Ali et Fatma.
 
-Modifiés : `.env.example` (cible proxy), frontend `App`, `main`, client API, Layout, Auth, Help, Vite, configuration Playwright et test navigation ; README, architecture et passation. Aucun fichier backend ou database modifié ; `docs/API_CONTRACT.md` inchangé. Aucune dépendance supplémentaire.
+---
 
-## 4. Endpoints réellement connectés
+## 3. Intégration React
 
-POST `/api/auth/login`, GET `/api/auth/me`, POST `/api/auth/logout`, GET `/api/vergers?page=N&size=100`, GET `/api/vergers/{id}`. JWT Bearer explicite. Les codes 400/401/403/404/409 et les pannes réseau sont traduits ; les messages internes du serveur ne sont pas affichés tels quels.
+- `src/api/harvests.ts` branché sur `/api/recoltes` (`harvestCapabilities` toutes à `true`) avec mapping `RecolteDTO` ↔ `HarvestRequestView`, envoi `Idempotency-Key` (conservée en cas de panne réseau pour rejeu idempotent), et traduction des `fieldErrors`.
+- `src/features/harvests/` : liste paginée serveur avec recherche et filtres, création réelle avec blocage double-clic et préservation de saisie après erreur / reconnexion 401, détail avec chronologie `historique` réelle, et annulation avec confirmation inline + motif optionnel.
+- `/demo/collectes` conservé strictement séparé et sans appel API.
+- `frontend/package.json`, `playwright.config.ts`, `playwright.live.config.ts` et `scripts/verify-live.py` rendus compatibles macOS/Linux en plus de Windows.
 
-## 5. Simulations et limitations
+---
 
-Récoltes : aucune persistance réelle, liste/détail/création uniquement en démo. L’espace connecté permet de vérifier un brouillon, pas de déclarer une récolte au serveur. Historique et annulation absents. Inscription, carte, dashboard et autres modules J01 restent des aperçus. Les brouillons ne survivent ni au rechargement ni à la sortie du parcours. Pas de file hors ligne, de refresh token ou d’idempotence serveur. Validation de saison, plafonds et statut TERMINEE/LIVREE encore à arbitrer.
+## 4. Tests Vérifiés
 
-Audit backend transmis sans réécriture : inscription publique acceptant les rôles du corps (prioritaire), absence de restriction AGRICULTEUR sur création de verger, `DefaultVergerUsageChecker` retournant false, logout sans révocation du JWT, valeurs de secours JWT/seed déjà présentes dans la configuration. Voir `docs/J04_INTEGRATION.md` avant toute mise en ligne.
+- **Backend Maven (`cd backend && ./mvnw -B -ntp test`)** : **77/77 tests réussis** (0 échec, 0 erreur, 0 ignoré), incluant tests unitaires (`AuthServiceTest`, `RecolteServiceTest`), sécurité MockMvc (`AuthControllerTest`, `VergerControllerTest`, `RecolteControllerTest`) et intégration MongoDB + concurrence multi-threads (`MongoIndexAndGeoIntegrationTest`, `RecolteMongoIntegrationTest`).
+- **Frontend statique & unitaire** : `npm run build`, `npm run typecheck`, `npm run lint` sans erreur ; **30/30** tests Vitest réussis (`4` fichiers).
+- **Playwright E2E (réponses API interceptées + démo, `npm run test:e2e`)** : **15/15** tests réussis sous Chromium.
+- **Parcours réel React → Spring Boot → MongoDB (`python3 scripts/verify-live.py`)** : **1/1** scénario complet réussi sur base QA isolée (`oliveconnect_j05_qa_4606abd4`) : 401 sans jeton, 403 élévation de privilèges à l'inscription, 404 verger étranger, création réelle de récolte, historique persisté, annulation avec confirmation, responsive 320 px, déconnexion et isolation IDOR entre Ali et Fatma.
 
-## 6. Tests
+---
 
-- `npm.cmd run build`, `npm.cmd run typecheck`, `npm.cmd run lint` : succès après les dernières corrections.
-- `npm.cmd test` : 26 tests réussis (3 fichiers), validations et adaptateurs inclus.
-- `npm.cmd run test:e2e` : 14 tests réussis sous Edge (19,7 s), navigation, filtres combinés, double clic, états, HTTP 400/401/403/404/409, panne réseau et responsive 320 px. Les réponses API de cette suite sont interceptées.
-- Backend hérité : `mvnw.cmd test` avec JAVA_HOME configuré vers le JDK installé : 52 tests réussis, aucun échec/erreur/test ignoré. Backend inchangé depuis cette exécution.
-- `python scripts/verify-live.py` : 1 parcours réel réussi avec Spring Boot et MongoDB (6,3 s), connexion/me, accès sans token refusé, verger étranger refusé en 404, sélection des seuls vergers propres, vérification du brouillon, déconnexion mobile et changement de compte. Base QA dédiée, processus backend arrêté à la fin.
-- Captures connectées desktop/mobile inspectées visuellement ; aucun débordement à 320 px. Démarrage Vite et navigation validés par les parcours navigateur.
-- Corrections issues des essais : origine CORS du serveur QA, fermeture du menu mobile à la déconnexion et libellés accessibles des filtres. Aucun test de création/annulation réelle de récolte possible : endpoints absents.
+## 5. Limites Connues & Tâches Restantes pour Ben Slima (Jour 6)
 
-## 7. Lancement
-
-Démo : `cd frontend`, `npm.cmd ci` si nécessaire, `npm.cmd run dev`, puis http://127.0.0.1:5173/collectes. Dépendances existantes réutilisées pendant J04.
-
-API : démarrer MongoDB et Spring Boot selon README ; `.env` racine avec `VITE_API_ENABLED=true`, `VITE_API_BASE_URL=/api`, `API_PROXY_TARGET=http://127.0.0.1:8080` (adapter le port). Redémarrer Vite, ouvrir `/connexion`. `/demo/collectes` reste accessible séparément. Pas de secrets dans VITE_*.
-
-Vérifications : build, typecheck, lint, test et test:e2e depuis frontend. Edge requis et ports 5173/5174 libres. Test réel : jar packagé, JAVA_HOME JDK 21+ puis `python scripts/verify-live.py`. Le script utilise 8085/5174 et une base QA isolée conservée pour inspection, sans toucher les données applicatives. Les serveurs de test sont arrêtés à la fin.
-
-## 8. Prochaines tâches de Ben Ayed — Jour 5
-
-1. Corriger l’attribution de rôles sur l’inscription publique et tester les autorisations backend.
-2. Valider le DTO de récolte, la date souhaitée, le caractère obligatoire de la quantité et les statuts ; documenter les écarts validés au contrat.
-3. Implémenter création/liste paginée/détail avec propriétaire dérivé du JWT, refus verger étranger/inactif et contrôles de dates.
-4. Ajouter idempotence, doublons actifs et conflits atomiques ; tester transitions interdites et annulation après démarrage.
-5. Définir les routes et règles d’annulation/historique, puis brancher `src/api/harvests.ts` ; ne pas lever ses capacités avant disponibilité réelle.
-6. Remplacer le usage checker provisoire et préparer les alertes métier du J05. Les contrôles frontend ne remplacent aucune règle serveur.
+1. **Absence du dossier maître PDF dans le dépôt** : Aucun fichier `.pdf` n'était présent dans le workspace. Les règles ont été consolidées depuis `docs/API_CONTRACT.md`, `docs/J04_INTEGRATION.md`, `docs/HANDOFF_J03.md` et l'historique J01 (`b7a5a4f:docs/API_CONTRACT.md`).
+2. **Périmètre des alertes** : Les demandes urgentes (`urgent`, `motifUrgence`) sont traitées dans `/api/recoltes`. Aucun module autonome `/api/alertes` (`FieldAlert`) n'a été inventé faute de spécification PDF ; vérifier dans le dossier maître s'il relève du Jour 6+.
+3. **Intégration Tournées (`Tour`) & Ressources au Jour 6** :
+   - Implémenter les tournées (`/api/tournees`), ressources (`/api/ressources`) et la transition `VALIDEE -> PLANIFIEE -> EN_COURS -> LIVREE / INTERROMPUE` pilotée par le cycle de vie des tournées.
+   - Enrichir `RecolteVergerUsageChecker` (ou un composite `VergerUsageChecker`) si des tournées actives doivent aussi empêcher la suppression de vergers/parcelles.
+4. **Révocation JWT & Secrets de production** :
+   - `POST /api/auth/logout` reste sans liste noire serveur (comportement J02 documenté).
+   - Remplacer les valeurs par défaut `JWT_SECRET` et `SEED_DEFAULT_PASSWORD` hors environnement local.

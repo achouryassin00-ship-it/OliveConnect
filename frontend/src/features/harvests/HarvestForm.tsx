@@ -184,7 +184,7 @@ export function HarvestForm({
           </>
         )}
         <div className="form-actions">
-          <button disabled={busy || disabled || own.length === 0}>
+          <button type="submit" disabled={busy || disabled || own.length === 0}>
             {busy
               ? "Vérification en cours…"
               : demo

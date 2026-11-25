@@ -67,7 +67,7 @@ export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
           maxLength={100}
         />
       </label>
-      <button disabled={busy || !apiEnabled}>
+      <button type="submit" disabled={busy || !apiEnabled}>
         {busy
           ? "Connexion en cours…"
           : !apiEnabled

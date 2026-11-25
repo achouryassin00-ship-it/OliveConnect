@@ -5,6 +5,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { ModulePage } from "./pages/Modules";
 import { AuthPage } from "./pages/Auth";
 import { HelpPage } from "./pages/Help";
+import { HarvestPage } from "./features/harvests/HarvestPage";
 export function App() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -19,9 +20,10 @@ export function App() {
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="collectes/*" element={<HarvestPage />} />
+        <Route path="demo/collectes/*" element={<HarvestPage forceDemo />} />
         {[
           "vergers",
-          "collectes",
           "alertes",
           "tournees",
           "ressources",

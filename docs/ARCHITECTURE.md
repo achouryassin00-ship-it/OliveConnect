@@ -1,4 +1,21 @@
-# Architecture — Jour 1
+# Architecture — fondation J01 et intégration J04
+
+## Évolution Jour 4
+
+Le backend J02/J03 est désormais présent dans `backend/` (Spring Boot, JWT et MongoDB). Le détail audité et les risques transmis sont dans [J04_INTEGRATION.md](J04_INTEGRATION.md). Les sections suivantes décrivent la fondation historique J01 ; les paragraphes de cette section précisent l’état actuel.
+
+- `src/auth/` : contexte React de session, token Bearer uniquement en mémoire ; vérification du profil par `/auth/me`, expiration et déconnexion.
+- `src/api/auth.ts`, `vergers.ts` et `types/api.ts` : adaptateurs des endpoints et DTO J02/J03 effectivement présents. Le client HTTP commun gère délai maximal, erreurs traduites et erreurs de champs sans exposer le message interne du serveur.
+- `src/features/harvests/` : parcours autonome (page/liste, formulaire, détail, validation, styles). La route `/collectes/*` remplace la démonstration générique correspondante ; les autres modules J01 restent préservés.
+- `src/demo/harvests.ts` : exemples indépendants, jamais utilisés comme secours automatique après erreur API.
+- `src/api/harvests.ts` : port typé désactivé jusqu’à validation du contrat J05 ; aucun endpoint supposé n’est appelé.
+- `e2e/` : démo, réponses API contrôlées et test réel opt-in avec configuration dédiée. `scripts/verify-live.py` orchestre un backend de vérification isolé.
+
+Les routes de démo restent publiques. En mode API, le parcours agriculteur exige une session active avec rôle AGRICULTEUR. Le serveur vérifie la propriété des vergers ; l’UI filtre également propriétaire et actif pour éviter d’inclure des résultats de staff dans les choix. Les brouillons sont isolés par compte et restent en mémoire lors d’un échec réseau ou d’une reconnexion sur l’écran. Le changement de compte détruit l’ancien état.
+
+La liste réelle des récoltes, l’envoi, l’historique et l’annulation ne sont pas disponibles. Le contrat J03 reste inchangé ; le modèle de présentation J04 ne constitue pas un DTO serveur validé. Aucune migration ni modification Spring Boot/MongoDB n’est apportée au J04.
+
+## Fondation historique Jour 1
 
 React 19, Vite 7, TypeScript strict et React Router composent une SPA locale. CSS natif, icônes Lucide et polices système évitent une bibliothèque UI lourde et des requêtes de police externes. Node >= 22.12 est requis ; vérifications réalisées sous Node 24.
 

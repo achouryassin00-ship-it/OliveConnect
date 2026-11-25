@@ -3,6 +3,7 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
+    public fieldErrors: Record<string, string> = {},
   ) {
     super(message);
     this.name = "ApiError";
@@ -16,7 +17,7 @@ const messages: Record<number, string> = {
   409: "Les données ont changé. Rechargez avant de réessayer.",
   503: "Service momentanément indisponible.",
 };
-/** Integration boundary only: the Day 1 UI never calls this client. No mock fallback. */
+/** No demo fallback. JWT is passed explicitly, never stored in this module. */
 export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
@@ -25,7 +26,7 @@ export async function apiRequest<T>(
     throw new ApiError(
       0,
       "API_DISABLED",
-      "API non connectée : démonstration du Jour 1.",
+      "API désactivée. Activez VITE_API_ENABLED pour utiliser les services disponibles.",
     );
   if (!path.startsWith("/") || path.startsWith("//"))
     throw new ApiError(0, "INVALID_PATH", "Chemin API invalide.");
@@ -42,13 +43,37 @@ export async function apiRequest<T>(
         ? AbortSignal.any([init.signal, AbortSignal.timeout(10000)])
         : AbortSignal.timeout(10000),
     });
-    if (!response.ok)
+    if (!response.ok) {
+      const body: unknown = await response.json().catch(() => null);
+      const problem =
+        body && typeof body === "object"
+          ? (body as Record<string, unknown>)
+          : {};
+      const code =
+        typeof problem.code === "string" ? problem.code : "HTTP_ERROR";
+      // Use trusted, translated labels instead of arbitrary server messages/stack traces.
+      const known: Record<string, string> = {
+        ACCOUNT_DISABLED: "Votre compte est désactivé.",
+        EMAIL_ALREADY_EXISTS: "Cette adresse e-mail est déjà utilisée.",
+      };
+      const fields: Record<string, string> = {};
+      if (
+        response.status === 400 &&
+        problem.fieldErrors &&
+        typeof problem.fieldErrors === "object"
+      ) {
+        for (const key of Object.keys(problem.fieldErrors))
+          fields[key] = "Vérifiez la valeur de ce champ.";
+      }
       throw new ApiError(
         response.status,
-        "HTTP_ERROR",
-        messages[response.status] ||
+        code,
+        known[code] ||
+          messages[response.status] ||
           "Une erreur est survenue. Réessayez plus tard.",
+        fields,
       );
+    }
     if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
   } catch (error) {

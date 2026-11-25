@@ -5,6 +5,7 @@ Plateforme de gestion pour la coopérative oléicole de Sfax (Projet ING INFO 2�
 - **Jour 1 (Yassine Achour)** : Socle Frontend React 19, TypeScript, Vite.
 - **Jour 2 (Ben Ayed)** : Socle Backend Spring Boot 3.3.5, Spring Security 6, Authentification JWT.
 - **Jour 3 (Ben Slima)** : Modélisation MongoDB 7, Indexation explicite (2dsphere, uniques, composés), DataSeeder Sfax et API Vergers/Parcelles/Variétés (52 tests validés).
+- **Jour 4 (Yassine Achour)** : Parcours demandes de collecte, connexion JWT et lecture des vergers connectées ; formulaires, détail et filtres en démonstration isolée. L’API de récoltes n’existe pas encore : aucun envoi réel de demande.
 
 ---
 
@@ -60,6 +61,22 @@ npm.cmd run dev
 
 L'interface est accessible sur [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
+### Mode connecté Jour 4
+
+Sans configuration, `/collectes` utilise des exemples fictifs clairement signalés. Pour la connexion réelle, créer un `.env` à la **racine** contenant uniquement :
+
+```dotenv
+VITE_API_ENABLED=true
+VITE_API_BASE_URL=/api
+API_PROXY_TARGET=http://127.0.0.1:8080
+```
+
+Adapter `API_PROXY_TARGET` au port Spring Boot (8081 si nécessaire), puis redémarrer Vite. Ne pas mettre de secret dans VITE_*. Le proxy concerne le serveur de développement ; en déploiement prévoir le proxy inverse `/api`.
+
+Ouvrir `/connexion`, utiliser un compte agriculteur existant puis `/collectes/nouvelle`. La connexion et le chargement des vergers sont réels. **« Vérifier le brouillon » ne transmet aucune récolte** : ce service appartient au Jour 5. `/demo/collectes` conserve un jeu de demandes fictives séparé, même en mode connecté.
+
+Le JWT et les brouillons restent uniquement en mémoire. Un rechargement nécessite une reconnexion et efface le brouillon. Une erreur réseau sur l’écran conserve la saisie. L’inscription, les indicateurs et les autres modules hors parcours collecte restent des aperçus. Lire les limites backend relevées dans [l’audit J04](docs/J04_INTEGRATION.md) avant toute exposition publique.
+
 ---
 
 ## 4. Vérification et Tests
@@ -85,7 +102,10 @@ npm.cmd run build
 npm.cmd run typecheck
 npm.cmd run lint
 npm.cmd test
+npm.cmd run test:e2e
 ```
+
+La suite navigateur nécessite Edge et les ports 5173/5174 libres. Elle couvre la démo et les erreurs avec des réponses API interceptées, sans prétendre tester MongoDB. Pour le parcours réel sur une base QA isolée, suivre [la procédure J04](docs/J04_INTEGRATION.md#vérifications-reproductibles) (`python scripts/verify-live.py`, après packaging du backend et avec JAVA_HOME défini).
 
 ---
 
@@ -110,5 +130,7 @@ Pour inspecter les collections et vérifier les index créés :
 
 - [Schéma et modèle MongoDB](docs/MONGODB_SCHEMA.md)
 - [Contrat d'API validé](docs/API_CONTRACT.md)
-- [Rapport de passation Jour 3 vers Jour 4](docs/HANDOFF.md)
+- [Rapport de passation Jour 4 vers Jour 5](HANDOFF.md)
+- [Archive de la passation Jour 3](docs/HANDOFF_J03.md)
+- [Audit et frontières d’intégration Jour 4](docs/J04_INTEGRATION.md)
 - [Fixtures JSON exportées](database/seed/)

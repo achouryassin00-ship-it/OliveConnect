@@ -1,6 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { loadOwnedVergers } from "./vergers";
-import { harvestsApi } from "./harvests";
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
@@ -42,15 +41,4 @@ it("loads all pages and excludes inactive and other-owner orchards, including mi
   expect(fetch.mock.calls[0][1].headers.get("Authorization")).toBe(
     "Bearer test-token",
   );
-});
-it("never calls unimplemented harvest endpoints", async () => {
-  const fetch = vi.fn();
-  vi.stubGlobal("fetch", fetch);
-  await expect(harvestsApi.list()).rejects.toMatchObject({
-    code: "HARVEST_API_UNAVAILABLE",
-  });
-  await expect(harvestsApi.get("id")).rejects.toMatchObject({
-    code: "HARVEST_API_UNAVAILABLE",
-  });
-  expect(fetch).not.toHaveBeenCalled();
 });

@@ -24,10 +24,11 @@ export function HelpPage() {
           <li>Sur téléphone, ouvrez le menu en haut pour changer de module.</li>
         </ol>
         <p className="card-body">
-          Jour 4 : en mode API, la connexion et les vergers utilisent le
-          serveur. Les demandes de collecte restent des brouillons non envoyés.
-          En démonstration, vous pouvez ajouter des exemples locaux, perdus en
-          quittant l’espace Collectes ou en rechargeant la page.
+          Jour 5 : en mode API, la connexion, les vergers et les demandes de
+          collecte (création, liste paginée, détail, historique et annulation)
+          utilisent le serveur Spring Boot et MongoDB. En démonstration
+          (/demo/collectes), vous pouvez ajouter des exemples locaux en mémoire,
+          perdus en quittant cet espace ou en rechargeant la page.
         </p>
       </Panel>
     </>

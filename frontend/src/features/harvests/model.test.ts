@@ -24,7 +24,7 @@ describe("Farmer harvest draft validation", () => {
     "rejects date %s",
     (desiredDate) => expect(validate({ desiredDate }).desiredDate).toBeTruthy(),
   );
-  it.each(["0", "-12", "NaN", "Infinity", "1e9", "2.1234"])(
+  it.each(["0", "-12", "NaN", "Infinity", "1e9", "2.1234", "500001"])(
     "rejects invalid weight %s",
     (estimatedKg) => expect(validate({ estimatedKg }).estimatedKg).toBeTruthy(),
   );

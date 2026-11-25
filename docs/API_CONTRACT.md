@@ -1,4 +1,4 @@
-# Contrat d'API OliveConnect (Validé J02 & J03)
+# Contrat d'API OliveConnect (Validé J02, J03 & J05)
 
 Ce document constitue le contrat formel des endpoints implémentés et testés dans l'API OliveConnect.
 
@@ -61,7 +61,7 @@ Toutes les erreurs retournent la structure standard suivante :
 | Méthode | Route | Accès | Description |
 |---|---|---|---|
 | `GET` | `/health`, `/api/health` | Public | Vérification de l'état du backend (`{"status":"UP"}`) |
-| `POST` | `/api/auth/register` | Public | Inscription (mot de passe haché BCrypt, email normalisé) |
+| `POST` | `/api/auth/register` | Public | Inscription (mot de passe haché BCrypt, email normalisé, rôle forcé à `AGRICULTEUR` — 403 si rôle privilégié demandé) |
 | `POST` | `/api/auth/login` | Public | Authentification, contrôle compte actif, émission JWT |
 | `POST` | `/api/auth/logout` | Authentifié | Déconnexion (204 No Content) |
 | `GET` | `/api/auth/me` | Authentifié | Profil utilisateur connecté |
@@ -149,7 +149,7 @@ Détail d'un verger.
 
 #### `POST /api/vergers`
 Création d'un verger.
-- **Accès** : Utilisateur authentifié (`AGRICULTEUR`).
+- **Accès** : Utilisateur authentifié possédant obligatoirement le rôle `AGRICULTEUR` (`@PreAuthorize("hasRole('AGRICULTEUR')")`, `403 ACCESS_DENIED` sinon).
 - **Règles métier** :
   - `proprietaireId` (AUT-02) : Dérivé obligatoirement de la session de l'utilisateur authentifié (toute valeur transmise dans le corps est ignorée).
   - Unicité du `code` : 409 si déjà existant.
@@ -192,7 +192,7 @@ Modification d'un verger existant.
 Suppression logique d'un verger (`actif = false`).
 - **Accès** : Propriétaire ou Staff.
 - **Règles métier** :
-  - Point d'extension récoltes/tournées : Vérifie `VergerUsageChecker.isInUse(id)` &rarr; 409 si en cours d'utilisation.
+  - Point d'extension récoltes/tournées : Vérifie `VergerUsageChecker.isInUse(id)` via `RecolteVergerUsageChecker` (demandes actives `DEMANDEE`, `VALIDEE`, `PLANIFIEE`, `EN_COURS`) &rarr; 409 si en cours d'utilisation.
   - Supprime en cascade logique (`actif = false`) toutes les parcelles rattachées.
 - **Réponse nominale (204 No Content)**.
 
@@ -256,3 +256,104 @@ Mise à jour d'une parcelle.
 Suppression logique d'une parcelle (`actif = false`).
 - **Accès** : Propriétaire du verger ou Staff.
 - **Réponse nominale (204 No Content)**.
+
+---
+
+### 3.5. Demandes de collecte / Récoltes (Jour 5 — Ben Ayed)
+
+#### Règles métier & Idempotence (rapprochement J01/J03/J04)
+- **Statuts (`StatutRecolte`)** : `DEMANDEE`, `VALIDEE`, `PLANIFIEE`, `EN_COURS`, `LIVREE`, `PESEE`, `ARCHIVEE`, `REFUSEE`, `ANNULEE`, `INTERROMPUE`.
+- **Propriétaire (`proprietaireId`)** : Toujours dérivé du principal authentifié (`SecurityService.getCurrentUserId()`), jamais du corps JSON.
+- **Contrôle du verger** : Le verger doit exister, appartenir à l'agriculteur authentifié (sinon `404 RESOURCE_NOT_FOUND` anti-IDOR) et être actif (`actif = true`, sinon `400 VALIDATION_ERROR`).
+- **Date souhaitée (`dateSouhaitee`)** : Format `YYYY-MM-DD` (date locale), obligatoire, `>=` aujourd'hui dans le fuseau `Africa/Tunis`.
+- **Quantité estimée (`quantiteEstimeeKg`)** : Facultative (`null` autorisé ; si renseignée : strictement positive, finie, `≤ 500 000 kg`, 3 décimales maximum).
+- **Urgence (`urgent`, `motifUrgence`)** : `motifUrgence` obligatoire et non vide si `urgent = true` (max 500 caractères).
+- **Anti-doublon actif** : Un même verger ne peut pas avoir deux demandes actives (`DEMANDEE`, `VALIDEE`, `PLANIFIEE`, `EN_COURS`) pour la même `dateSouhaitee` (index partiel unique MongoDB `idx_recoltes_verger_date_active_unique` &rarr; `409 RESOURCE_CONFLICT`). Une nouvelle demande redevient possible après `ANNULEE` ou `REFUSEE`.
+- **Idempotence (`Idempotency-Key`)** :
+  - En-tête optionnel sur `POST /api/recoltes` (1 à 128 caractères, scopé par `proprietaireId`).
+  - Même clé + même charge utile (hash SHA-256 canonique) &rarr; `200 OK` avec en-tête `X-Idempotent-Replay: true` et l'enregistrement existant (sans doublon).
+  - Même clé + charge utile différente &rarr; `409 RESOURCE_CONFLICT`.
+  - Concurrence atomique garantie par l'index partiel unique `{ proprietaireId: 1, idempotencyKey: 1 }`.
+- **Périmètre des alertes** : Les demandes urgentes (`urgent = true` + `motifUrgence`) sont gérées dans `/api/recoltes`. Le dossier maître PDF n'étant pas accessible dans le dépôt, aucun module autonome `/api/alertes` (`FieldAlert`) n'a été inventé au Jour 5.
+
+#### `POST /api/recoltes`
+Création d'une demande de collecte.
+- **Accès** : Utilisateur authentifié avec rôle `AGRICULTEUR` uniquement (`403 ACCESS_DENIED` sinon).
+- **En-tête optionnel** : `Idempotency-Key: <uuid>`
+- **Corps de requête** :
+```json
+{
+  "vergerId": "67422bc99d21ef02b9015678",
+  "dateSouhaitee": "2026-11-28",
+  "quantiteEstimeeKg": 2400.5,
+  "urgent": true,
+  "motifUrgence": "Maturité avancée sur parcelle nord"
+}
+```
+- **Réponse nominale (`201 Created`, ou `200 OK` avec `X-Idempotent-Replay: true` en rejeu)** : En-tête `Location: /api/recoltes/{id}` et objet créé :
+```json
+{
+  "id": "67445aa12c01ef00b8901111",
+  "reference": "REC-2026-A1B2C3D4",
+  "proprietaireId": "67420aa11b01ef00a7800001",
+  "vergerId": "67422bc99d21ef02b9015678",
+  "vergerNom": "Verger El Hencha Nord",
+  "vergerCode": "VRG-SFX-001",
+  "dateSouhaitee": "2026-11-28",
+  "quantiteEstimeeKg": 2400.5,
+  "urgent": true,
+  "motifUrgence": "Maturité avancée sur parcelle nord",
+  "statut": "DEMANDEE",
+  "annulable": true,
+  "historique": [
+    {
+      "ancienStatut": null,
+      "nouveauStatut": "DEMANDEE",
+      "acteurId": "67420aa11b01ef00a7800001",
+      "acteurNom": "Ali Ben M'Barek",
+      "acteurRole": "AGRICULTEUR",
+      "motif": "Maturité avancée sur parcelle nord",
+      "horodatage": "2026-11-25T18:30:00Z"
+    }
+  ],
+  "version": 0,
+  "createdAt": "2026-11-25T18:30:00Z",
+  "updatedAt": "2026-11-25T18:30:00Z"
+}
+```
+
+#### `GET /api/recoltes`
+Liste paginée des demandes de collecte.
+- **Accès** :
+  - `AGRICULTEUR` : voit exclusivement ses propres demandes (`proprietaireId = currentUser.id`).
+  - `RESPONSABLE_COLLECTE` / `ADMINISTRATEUR` : voient l'ensemble des demandes.
+- **Paramètres** : `page` (défaut 0), `size` (défaut 20, max 100), `q` (recherche sur référence, ID ou nom/code du verger), `statut` (`StatutRecolte`), `urgent` (`true`/`false`), `vergerId`, `dateDebut` (`YYYY-MM-DD`), `dateFin` (`YYYY-MM-DD`).
+- **Réponse nominale (`200 OK`)** : `PageResponse<RecolteResponseDTO>`.
+
+#### `GET /api/recoltes/{id}`
+Détail complet d'une demande avec historique persisté.
+- **Accès** : Propriétaire, Responsable Collecte ou Administrateur (`404 RESOURCE_NOT_FOUND` si demande d'un tiers pour l'agriculteur).
+- **Réponse nominale (`200 OK`)** : `RecolteResponseDTO`.
+
+#### `POST /api/recoltes/{id}/annuler`
+Annulation d'une demande de collecte.
+- **Accès** : Propriétaire, Responsable Collecte ou Administrateur (`404` anti-IDOR).
+- **Règle d'annulation** : Autorisée uniquement aux statuts `DEMANDEE` et `VALIDEE` (avant planification et démarrage). Refusée en `409 RESOURCE_CONFLICT` depuis `PLANIFIEE`, `EN_COURS`, `LIVREE`, `PESEE`, `ARCHIVEE`, `REFUSEE`, `ANNULEE`, `INTERROMPUE`.
+- **Corps optionnel** :
+```json
+{
+  "version": 0,
+  "motif": "Report suite aux prévisions météo"
+}
+```
+- **Réponse nominale (`200 OK`)** : `RecolteResponseDTO` mis à jour (`statut = ANNULEE`, `annulable = false`, nouvelle entrée persistée dans `historique`).
+
+#### `POST /api/recoltes/{id}/transitions`
+Transition officielle de statut avec contrôle de rôle et machine à états.
+- **Transitions autorisées (Jour 5)** :
+  - `DEMANDEE` &rarr; `VALIDEE` (`RESPONSABLE_COLLECTE` / `ADMINISTRATEUR` uniquement, `403` pour agriculteur)
+  - `DEMANDEE` &rarr; `REFUSEE` (`RESPONSABLE_COLLECTE` / `ADMINISTRATEUR` uniquement, `motif` obligatoire &rarr; `400` sinon)
+  - `DEMANDEE` / `VALIDEE` &rarr; `ANNULEE` (Propriétaire ou Staff)
+  - Toute autre transition (ou depuis un état terminal/planifié/en cours) &rarr; `409 RESOURCE_CONFLICT`.
+- **Corps de requête** : `{ "statutCible": "VALIDEE", "version": 0, "motif": "Créneau confirmé" }`.
+- **Réponse nominale (`200 OK`)** : `RecolteResponseDTO`.

@@ -1,6 +1,6 @@
-# Spécification & Schéma MongoDB — OliveConnect (Jour 3 — Ben Slima)
+# Spécification & Schéma MongoDB — OliveConnect (Jour 3 & Jour 5)
 
-Ce document formalise les collections, documents BSON, indexations et règles de modélisation MongoDB implémentées au Jour 3 pour la coopérative oléicole de Sfax.
+Ce document formalise les collections, documents BSON, indexations et règles de modélisation MongoDB implémentées aux Jours 3 (Ben Slima) et 5 (Ben Ayed) pour la coopérative oléicole de Sfax.
 
 ---
 
@@ -144,6 +144,31 @@ Découpage agronomique d'un verger selon les variétés d'oliviers cultivées.
 
 ---
 
+### 3.4. Collection `recoltes` (Jour 5 — Ben Ayed)
+Demandes de collecte d'olives déposées par les agriculteurs.
+
+| Champ | Type BSON | Contraintes | Description |
+|---|---|---|---|
+| `_id` | ObjectId / String | Clé primaire | Identifiant technique |
+| `reference` | String | Unique, Immuable | Référence métier (`REC-YYYY-XXXXXXXX`) |
+| `proprietaireId` | String | Ref `users._id` | Propriétaire authentifié (résolution JWT) |
+| `vergerId` | String | Ref `vergers._id` | Verger actif appartenant au propriétaire |
+| `dateSouhaitee` | Date / String | `>=` aujourd'hui Tunis | Date souhaitée (locale) |
+| `quantiteEstimeeKg` | Double | Optionnel, `> 0` et `≤ 500000` | Estimation en kg (3 décimales max) |
+| `urgent` | Boolean | Défaut `false` | Demande prioritaire |
+| `motifUrgence` | String | Obligatoire si `urgent`, max 500 | Justification de l'urgence |
+| `statut` | String | Enum `StatutRecolte` | `DEMANDEE`, `VALIDEE`, `PLANIFIEE`, `EN_COURS`, `LIVREE`, `PESEE`, `ARCHIVEE`, `REFUSEE`, `ANNULEE`, `INTERROMPUE` |
+| `idempotencyKey` | String | Optionnel, unique partiel par propriétaire | Clé d'idempotence `Idempotency-Key` |
+| `requestHash` | String | SHA-256 hex | Empreinte canonique des paramètres de création |
+| `historique` | Array[Object] | Borné (cycle de vie unitaire) | Historique horodaté des transitions (`ancienStatut`, `nouveauStatut`, `acteurId`, `acteurNom`, `acteurRole`, `motif`, `horodatage`) |
+| `version` | Long | Optimistic locking | Numéro de révision `@Version` |
+| `createdAt` | Date | Audit UTC | Date de création `@CreatedDate` |
+| `updatedAt` | Date | Audit UTC | Date de modification `@LastModifiedDate` |
+
+> **Choix d'embarquement borné pour `historique`** : Contrairement aux parcelles (non bornées dans le temps), une demande de collecte suit un cycle de vie court et borné (~2 à 10 transitions). Embarquer `historique` garantit une mise à jour atomique du statut et de sa trace d'audit sous le verrou optimiste `@Version`.
+
+---
+
 ## 4. Index MongoDB et Requêtes associées
 
 Les index sont créés de manière explicite et idempotente au démarrage de l'application via `MongoIndexConfig` :
@@ -157,6 +182,11 @@ Les index sont créés de manière explicite et idempotente au démarrage de l'a
 | `parcelles` | `idx_parcelles_verger_actif` | `{ "vergerId": 1, "actif": 1 }` | Récupération des parcelles actives d'un verger pour calcul de surface |
 | `parcelles` | `idx_parcelles_variete` | `{ "varieteId": 1 }` | Vérification de l'utilisation d'une variété avant désactivation |
 | `varietes` | `idx_varietes_code_unique` | `{ "code": 1 }` (unique) | Unicité du code variétal, lookup d'alimentation du seeder |
+| `recoltes` | `idx_recoltes_reference_unique` | `{ "reference": 1 }` (unique) | Recherche et unicité de la référence métier |
+| `recoltes` | `idx_recoltes_owner_statut_date` | `{ "proprietaireId": 1, "statut": 1, "dateSouhaitee": 1 }` | Liste paginée filtrée par agriculteur, statut et date |
+| `recoltes` | `idx_recoltes_verger_statut` | `{ "vergerId": 1, "statut": 1 }` | Contrôle réel `RecolteVergerUsageChecker` avant archivage d'un verger |
+| `recoltes` | `idx_recoltes_verger_date_active_unique` | `{ "vergerId": 1, "dateSouhaitee": 1 }` (unique partiel sur statuts actifs) | Protection atomique contre les doublons actifs |
+| `recoltes` | `idx_recoltes_owner_idempotency_unique` | `{ "proprietaireId": 1, "idempotencyKey": 1 }` (unique partiel si string) | Idempotence concurrente sur `POST /api/recoltes` |
 
 ---
 

@@ -11,7 +11,9 @@ import com.oliveconnect.exception.DuplicateEmailException;
 import com.oliveconnect.repository.UserRepository;
 import com.oliveconnect.security.CustomUserDetails;
 import com.oliveconnect.security.JwtService;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,11 +44,12 @@ public class AuthService {
             throw new DuplicateEmailException("Cette adresse e-mail est déjà utilisée.");
         }
 
-        Set<Role> roles = request.getRoles();
-        if (roles == null || roles.isEmpty()) {
-            roles = new HashSet<>();
-            roles.add(Role.AGRICULTEUR);
+        Set<Role> requestedRoles = request.getRoles();
+        if (requestedRoles != null && requestedRoles.stream().anyMatch(role -> role != Role.AGRICULTEUR)) {
+            throw new AccessDeniedException("L'inscription publique attribue uniquement le rôle AGRICULTEUR.");
         }
+        Set<Role> roles = new HashSet<>();
+        roles.add(Role.AGRICULTEUR);
 
         User user = new User();
         user.setName(request.getName().trim());

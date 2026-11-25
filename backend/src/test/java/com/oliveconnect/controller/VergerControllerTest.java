@@ -134,6 +134,24 @@ public class VergerControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "collecte-1", roles = {"RESPONSABLE_COLLECTE"})
+    @DisplayName("POST /api/vergers sans rôle AGRICULTEUR : retourne 403 ACCESS_DENIED")
+    void testCreateVergerForbiddenForNonFarmer() throws Exception {
+        VergerRequestDTO request = new VergerRequestDTO();
+        request.setCode("VRG-SFX-011");
+        request.setNom("Verger Staff");
+        request.setLatitude(34.80);
+        request.setLongitude(10.76);
+        request.setSurfaceHa(12.0);
+
+        mockMvc.perform(post("/api/vergers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
     @WithMockUser(username = "farmer-1", roles = {"AGRICULTEUR"})
     @DisplayName("POST /api/vergers coordonnées hors Sfax (VER-02) : retourne 400 VALIDATION_ERROR")
     void testCreateVergerOutsideSfax() throws Exception {

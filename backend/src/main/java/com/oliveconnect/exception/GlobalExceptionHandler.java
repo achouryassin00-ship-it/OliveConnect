@@ -1,11 +1,13 @@
 package com.oliveconnect.exception;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.oliveconnect.dto.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -13,6 +15,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,6 +45,34 @@ public class GlobalExceptionHandler {
                 "VALIDATION_ERROR",
                 ex.getMessage(),
                 ex.getFieldErrors()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableMessage(HttpMessageNotReadableException ex) {
+        Map<String, String> fieldErrors = new HashMap<>();
+        if (ex.getCause() instanceof InvalidFormatException ife && !ife.getPath().isEmpty()) {
+            String field = ife.getPath().get(ife.getPath().size() - 1).getFieldName();
+            if (field != null && !field.isBlank()) {
+                fieldErrors.put(field, "Format de valeur invalide.");
+            }
+        }
+        ErrorResponse response = new ErrorResponse(
+                "VALIDATION_ERROR",
+                "Format de requête invalide. Vérifiez les données saisies.",
+                fieldErrors.isEmpty() ? null : fieldErrors
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        Map<String, String> fieldErrors = Map.of(ex.getName(), "Valeur de paramètre invalide.");
+        ErrorResponse response = new ErrorResponse(
+                "VALIDATION_ERROR",
+                "Paramètre de requête invalide.",
+                fieldErrors
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }

@@ -1,5 +1,6 @@
 package com.oliveconnect.security;
 
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -9,8 +10,8 @@ public class SecurityService {
 
     public boolean isOwner(String ownerId) {
         if (ownerId == null) return false;
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) return false;
+        Authentication authentication = getValidAuthentication();
+        if (authentication == null) return false;
 
         Object principal = authentication.getPrincipal();
         if (principal instanceof CustomUserDetails userDetails) {
@@ -21,8 +22,8 @@ public class SecurityService {
 
     public boolean isOwnerOrAdmin(String ownerId) {
         if (ownerId == null) return false;
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) return false;
+        Authentication authentication = getValidAuthentication();
+        if (authentication == null) return false;
 
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> "ROLE_ADMINISTRATEUR".equals(a.getAuthority()));
@@ -32,13 +33,22 @@ public class SecurityService {
     }
 
     public String getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) return null;
+        Authentication authentication = getValidAuthentication();
+        if (authentication == null) return null;
 
         Object principal = authentication.getPrincipal();
         if (principal instanceof CustomUserDetails userDetails) {
             return userDetails.getId();
         }
         return authentication.getName();
+    }
+
+    private Authentication getValidAuthentication() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+            return null;
+        }
+        return authentication;
     }
 }

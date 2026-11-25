@@ -1,6 +1,8 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Sprout, LockKeyhole } from "lucide-react";
+import { LoginForm } from "../components/LoginForm";
 export function AuthPage({ register = false }: { register?: boolean }) {
+  const navigate = useNavigate();
   return (
     <main className="auth-page">
       <section className="auth-story">
@@ -38,39 +40,48 @@ export function AuthPage({ register = false }: { register?: boolean }) {
               ? "Préparez votre future demande d’adhésion."
               : "Votre campagne commence ici."}
           </p>
-          <div className="module-note">
-            Maquette uniquement : aucune authentification, aucun envoi ni
-            stockage. Utilisez des informations fictives.
-          </div>
-          <form onSubmit={(e) => e.preventDefault()}>
-            {register && (
-              <label>
-                Nom complet
-                <input autoComplete="off" placeholder="Votre nom (exemple)" />
-              </label>
-            )}
-            <label>
-              Adresse e-mail
-              <input
-                type="email"
-                autoComplete="off"
-                placeholder="exemple@example.com"
-              />
-            </label>
-            <label>
-              Mot de passe
-              <input
-                type="password"
-                autoComplete="new-password"
-                placeholder="Disponible après intégration"
-              />
-            </label>
-            <button disabled>
-              {register
-                ? "Inscription disponible prochainement"
-                : "Connexion disponible prochainement"}
-            </button>
-          </form>
+          {!register ? (
+            <LoginForm onSuccess={() => navigate("/collectes")} />
+          ) : (
+            <>
+              <div className="module-note">
+                Maquette uniquement : aucune authentification, aucun envoi ni
+                stockage. Utilisez des informations fictives.
+              </div>
+              <form onSubmit={(e) => e.preventDefault()}>
+                {register && (
+                  <label>
+                    Nom complet
+                    <input
+                      autoComplete="off"
+                      placeholder="Votre nom (exemple)"
+                    />
+                  </label>
+                )}
+                <label>
+                  Adresse e-mail
+                  <input
+                    type="email"
+                    autoComplete="off"
+                    placeholder="exemple@example.com"
+                  />
+                </label>
+                <label>
+                  Mot de passe
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Disponible après intégration"
+                  />
+                </label>
+                <button disabled>
+                  {register
+                    ? "Inscription disponible prochainement"
+                    : "Connexion disponible prochainement"}
+                </button>
+              </form>
+            </>
+          )}
           <Link className="button" to="/dashboard">
             Explorer la démonstration
           </Link>

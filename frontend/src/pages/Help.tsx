@@ -24,9 +24,10 @@ export function HelpPage() {
           <li>Sur téléphone, ouvrez le menu en haut pour changer de module.</li>
         </ol>
         <p className="card-body">
-          Jour 1 : rien n’est enregistré ni transmis. Authentification, saisie
-          métier, notifications et carte géographique seront ajoutées
-          progressivement.
+          Jour 4 : en mode API, la connexion et les vergers utilisent le
+          serveur. Les demandes de collecte restent des brouillons non envoyés.
+          En démonstration, vous pouvez ajouter des exemples locaux, perdus en
+          quittant l’espace Collectes ou en rechargeant la page.
         </p>
       </Panel>
     </>

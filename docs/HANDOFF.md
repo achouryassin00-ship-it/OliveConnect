@@ -1,3 +1,3 @@
-# Passation — Jour 3 vers Jour 4
+# Passation — Jour 4 vers Jour 5
 
-La passation de référence demandée et détaillée pour le Jour 3 est disponible à la racine du projet : [HANDOFF.md](../HANDOFF.md).
+La passation actuelle est à la racine : [HANDOFF.md](../HANDOFF.md). La passation précédente est conservée dans [HANDOFF_J03.md](HANDOFF_J03.md).

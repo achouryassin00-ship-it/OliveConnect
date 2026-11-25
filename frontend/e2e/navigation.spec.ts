@@ -6,7 +6,8 @@ test("desktop navigation, state previews and honest demo boundaries", async ({
   const apiCalls: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("request", (request) => {
-    if (request.url().includes("/api/")) apiCalls.push(request.url());
+    if (new URL(request.url()).pathname.startsWith("/api/"))
+      apiCalls.push(request.url());
   });
   await page.goto("/");
   await expect(
@@ -35,13 +36,13 @@ test("desktop navigation, state previews and honest demo boundaries", async ({
     .getByRole("textbox", { name: "Rechercher une collecte" })
     .fill("introuvable");
   await expect(page.getByText("Aucun élément à afficher")).toBeVisible();
-  await page.getByRole("combobox").selectOption("error");
+  await page.getByLabel("État de l’interface").selectOption("error");
   await expect(page.getByRole("alert")).toBeVisible();
   await page
     .getByRole("button", { name: "Réessayer la démonstration" })
     .click();
-  await expect(page.getByRole("combobox")).toHaveValue("ready");
-  await page.getByRole("combobox").selectOption("loading");
+  await expect(page.getByLabel("État de l’interface")).toHaveValue("ready");
+  await page.getByLabel("État de l’interface").selectOption("loading");
   await expect(page.getByText("Chargement en cours")).toBeVisible();
   await page.goto("/carte");
   await page.getByRole("button", { name: /Mahrès 09/ }).click();

@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { NavLink, Outlet, Link } from "react-router-dom";
+import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
+import { useAuth } from "../auth/context";
+import { apiEnabled } from "../api/config";
 import {
   LayoutDashboard,
   Trees,
@@ -31,6 +33,19 @@ const navigation = [
 ] as const;
 export function Layout() {
   const [open, setOpen] = useState(false);
+  const { session, logout } = useAuth();
+  const { pathname } = useLocation();
+  const [logoutNotice, setLogoutNotice] = useState("");
+  const initials = session
+    ? session.user.name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase()
+    : "YA";
+  const connectedScreen = apiEnabled && pathname.startsWith("/collectes");
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main">
@@ -91,13 +106,37 @@ export function Layout() {
               <CircleHelp size={18} /> Aide & prise en main
             </Link>
             <Link to="/connexion" className="profile">
-              <span className="avatar">YA</span>
+              <span className="avatar">{initials}</span>
               <span>
-                <strong>Yassine Achour</strong>
-                <small>Profil de démonstration</small>
+                <strong>{session?.user.name || "Yassine Achour"}</strong>
+                <small>
+                  {session
+                    ? session.expired
+                      ? "Session expirée"
+                      : "Session connectée"
+                    : "Profil de démonstration"}
+                </small>
               </span>
               <LogOut size={17} />
             </Link>
+            {session && (
+              <button
+                className="logout-button"
+                onClick={async () => {
+                  setOpen(false);
+                  try {
+                    await logout();
+                    setLogoutNotice("Session locale fermée.");
+                  } catch {
+                    setLogoutNotice(
+                      "Session locale fermée ; le serveur n’a pas confirmé la déconnexion.",
+                    );
+                  }
+                }}
+              >
+                Fermer ma session
+              </button>
+            )}
           </div>
         </div>
       </aside>
@@ -115,20 +154,29 @@ export function Layout() {
             >
               <Bell size={20} />
             </Link>
-            <span className="avatar light">YA</span>
+            <span className="avatar light">{initials}</span>
           </div>
         </header>
         <div className="demo-banner">
           <span className="demo-dot" />
-          <strong>Mode démonstration</strong>
-          <span>Données fictives · Aucun service connecté</span>
+          <strong>
+            {connectedScreen
+              ? "Parcours connecté partiellement"
+              : "Mode démonstration"}
+          </strong>
+          <span>
+            {connectedScreen
+              ? "Auth et vergers : API · Récoltes : indisponibles"
+              : "Données fictives sur cet écran · Aucun indicateur réel"}
+          </span>
         </div>
         <main id="main" tabIndex={-1}>
+          {logoutNotice && !session && <p role="status">{logoutNotice}</p>}
           <Outlet />
         </main>
         <footer>
           OliveConnect <span>Du verger au pressoir, ensemble.</span>
-          <span>Fondations · Jour 1</span>
+          <span>Parcours agriculteur · Jour 4</span>
         </footer>
       </div>
     </div>

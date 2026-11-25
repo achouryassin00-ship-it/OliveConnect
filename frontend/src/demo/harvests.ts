@@ -1,0 +1,81 @@
+import type {
+  HarvestRequestView,
+  OrchardChoice,
+} from "../features/harvests/model";
+export const demoFarmerId = "demo-user";
+export const demoOrchardChoices: OrchardChoice[] = [
+  {
+    id: "demo-v1",
+    name: "El Amra 12",
+    code: "VRG-DEMO-01",
+    ownerId: demoFarmerId,
+    active: true,
+  },
+  {
+    id: "demo-v2",
+    name: "Sakiet Ezzit 04",
+    code: "VRG-DEMO-02",
+    ownerId: demoFarmerId,
+    active: true,
+  },
+  {
+    id: "demo-inactive",
+    name: "Verger inactif",
+    code: "VRG-DEMO-03",
+    ownerId: demoFarmerId,
+    active: false,
+  },
+  {
+    id: "demo-other",
+    name: "Verger d’un autre agriculteur",
+    code: "VRG-DEMO-04",
+    ownerId: "demo-other-user",
+    active: true,
+  },
+];
+export const demoHarvestRequests: HarvestRequestView[] = [
+  {
+    id: "COL-DEMO-204",
+    ownerId: demoFarmerId,
+    orchardId: "demo-v1",
+    desiredDate: "2026-11-28",
+    estimatedKg: 2400,
+    urgent: true,
+    justification: "Maturité optimale observée (exemple).",
+    status: "DEMANDEE",
+    createdAt: "2026-11-23T08:00:00Z",
+  },
+  {
+    id: "COL-DEMO-205",
+    ownerId: demoFarmerId,
+    orchardId: "demo-v2",
+    desiredDate: "2026-11-29",
+    estimatedKg: 1800,
+    urgent: false,
+    justification: "",
+    status: "PLANIFIEE",
+    createdAt: "2026-11-22T12:00:00Z",
+  },
+  {
+    id: "COL-DEMO-206",
+    ownerId: demoFarmerId,
+    orchardId: "demo-v1",
+    desiredDate: "2026-11-25",
+    estimatedKg: null,
+    urgent: false,
+    justification: "",
+    status: "EN_COURS",
+    createdAt: "2026-11-21T09:00:00Z",
+  },
+  {
+    id: "COL-OTHER",
+    ownerId: "demo-other-user",
+    orchardId: "demo-other",
+    desiredDate: "2026-11-28",
+    estimatedKg: 900,
+    urgent: false,
+    justification: "",
+    status: "DEMANDEE",
+    createdAt: "2026-11-23T08:00:00Z",
+  },
+];

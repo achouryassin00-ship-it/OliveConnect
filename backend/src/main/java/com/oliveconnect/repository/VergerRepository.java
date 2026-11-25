@@ -24,6 +24,8 @@ public interface VergerRepository extends MongoRepository<Verger, String> {
 
     Page<Verger> findByProprietaireIdAndActifTrue(String proprietaireId, Pageable pageable);
 
+    List<Verger> findByProprietaireId(String proprietaireId);
+
     List<Verger> findByProprietaireIdAndActifTrue(String proprietaireId);
 
     List<Verger> findByLocalisationNear(Point point, Distance distance);

@@ -16,6 +16,8 @@ oliveconnect:
       max-lng: 11.20
   verger:
     max-surface-ha: 1000.0
+  recolte:
+    max-quantite-kg: 500000.0
 
 jwt:
   secret: test-jwt-secret-key-sfax-2026-super-safe-minimum-256-bits

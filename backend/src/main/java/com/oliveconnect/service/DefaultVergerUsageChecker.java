@@ -2,13 +2,11 @@ package com.oliveconnect.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 /**
- * Implémentation par défaut pour le Jour 3 (Ben Slima).
- * Retourne false (non utilisé) en attendant le développement des récoltes (J05) et tournées (J06).
+ * Implémentation de repli hors contexte Spring (tests unitaires isolés J03).
+ * Dans le contexte applicatif, {@link RecolteVergerUsageChecker} vérifie réellement les récoltes actives.
  */
-@Component
 public class DefaultVergerUsageChecker implements VergerUsageChecker {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultVergerUsageChecker.class);

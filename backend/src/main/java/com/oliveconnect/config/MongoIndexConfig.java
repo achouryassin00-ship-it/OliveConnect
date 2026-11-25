@@ -1,9 +1,11 @@
 package com.oliveconnect.config;
 
 import com.oliveconnect.entity.Parcelle;
+import com.oliveconnect.entity.Recolte;
 import com.oliveconnect.entity.User;
 import com.oliveconnect.entity.Variete;
 import com.oliveconnect.entity.Verger;
+import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -14,6 +16,8 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.GeoSpatialIndexType;
 import org.springframework.data.mongodb.core.index.GeospatialIndex;
 import org.springframework.data.mongodb.core.index.Index;
+import org.springframework.data.mongodb.core.index.PartialIndexFilter;
+import org.springframework.data.mongodb.core.query.Criteria;
 
 @Configuration
 public class MongoIndexConfig {
@@ -34,6 +38,7 @@ public class MongoIndexConfig {
         createVergersIndexes();
         createParcellesIndexes();
         createVarietesIndexes();
+        createRecoltesIndexes();
 
         log.info("Tous les index MongoDB ont été initialisés avec succès.");
     }
@@ -99,5 +104,46 @@ public class MongoIndexConfig {
         Index codeIndex = new Index().on("code", Sort.Direction.ASC).unique().named("idx_varietes_code_unique");
         mongoTemplate.indexOps(Variete.class).ensureIndex(codeIndex);
         log.info("Index créé ou vérifié : varietes [idx_varietes_code_unique]");
+    }
+
+    public void createRecoltesIndexes() {
+        Index referenceIndex = new Index().on("reference", Sort.Direction.ASC).unique().named("idx_recoltes_reference_unique");
+        mongoTemplate.indexOps(Recolte.class).ensureIndex(referenceIndex);
+        log.info("Index créé ou vérifié : recoltes [idx_recoltes_reference_unique]");
+
+        Index ownerStatutDateIndex = new Index()
+                .on("proprietaireId", Sort.Direction.ASC)
+                .on("statut", Sort.Direction.ASC)
+                .on("dateSouhaitee", Sort.Direction.ASC)
+                .named("idx_recoltes_owner_statut_date");
+        mongoTemplate.indexOps(Recolte.class).ensureIndex(ownerStatutDateIndex);
+        log.info("Index créé ou vérifié : recoltes [idx_recoltes_owner_statut_date]");
+
+        Index vergerStatutIndex = new Index()
+                .on("vergerId", Sort.Direction.ASC)
+                .on("statut", Sort.Direction.ASC)
+                .named("idx_recoltes_verger_statut");
+        mongoTemplate.indexOps(Recolte.class).ensureIndex(vergerStatutIndex);
+        log.info("Index créé ou vérifié : recoltes [idx_recoltes_verger_statut]");
+
+        Index activeDuplicateIndex = new Index()
+                .on("vergerId", Sort.Direction.ASC)
+                .on("dateSouhaitee", Sort.Direction.ASC)
+                .unique()
+                .partial(PartialIndexFilter.of(
+                        Criteria.where("statut").in("DEMANDEE", "VALIDEE", "PLANIFIEE", "EN_COURS")
+                ))
+                .named("idx_recoltes_verger_date_active_unique");
+        mongoTemplate.indexOps(Recolte.class).ensureIndex(activeDuplicateIndex);
+        log.info("Index créé ou vérifié : recoltes [idx_recoltes_verger_date_active_unique]");
+
+        Index idempotencyIndex = new Index()
+                .on("proprietaireId", Sort.Direction.ASC)
+                .on("idempotencyKey", Sort.Direction.ASC)
+                .unique()
+                .partial(PartialIndexFilter.of(new Document("idempotencyKey", new Document("$type", "string"))))
+                .named("idx_recoltes_owner_idempotency_unique");
+        mongoTemplate.indexOps(Recolte.class).ensureIndex(idempotencyIndex);
+        log.info("Index créé ou vérifié : recoltes [idx_recoltes_owner_idempotency_unique]");
     }
 }

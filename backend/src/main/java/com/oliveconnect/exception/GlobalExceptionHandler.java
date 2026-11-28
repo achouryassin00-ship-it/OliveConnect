@@ -55,7 +55,15 @@ public class GlobalExceptionHandler {
         if (ex.getCause() instanceof InvalidFormatException ife && !ife.getPath().isEmpty()) {
             String field = ife.getPath().get(ife.getPath().size() - 1).getFieldName();
             if (field != null && !field.isBlank()) {
-                fieldErrors.put(field, "Format de valeur invalide.");
+                if (ife.getTargetType() != null && ife.getTargetType().isEnum()) {
+                    Object[] constants = ife.getTargetType().getEnumConstants();
+                    String accepted = java.util.Arrays.stream(constants)
+                            .map(Object::toString)
+                            .collect(java.util.stream.Collectors.joining(", "));
+                    fieldErrors.put(field, "Valeur invalide. Valeurs acceptées : " + accepted + ".");
+                } else {
+                    fieldErrors.put(field, "Format de valeur invalide.");
+                }
             }
         }
         ErrorResponse response = new ErrorResponse(

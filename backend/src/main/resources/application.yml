@@ -26,6 +26,9 @@ oliveconnect:
     max-surface-ha: 1000.0
   recolte:
     max-quantite-kg: 500000.0
+  tournee:
+    max-duree-heures: ${TOURNEE_MAX_DUREE_HEURES:12}
+    marge-transfert-minutes: ${TOURNEE_MARGE_TRANSFERT_MINUTES:0}
 
 jwt:
   secret: ${JWT_SECRET:oliveconnect-secure-jwt-secret-key-sfax-2026-super-safe-minimum-256-bits}

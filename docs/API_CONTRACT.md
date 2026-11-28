@@ -357,3 +357,71 @@ Transition officielle de statut avec contrôle de rôle et machine à états.
   - Toute autre transition (ou depuis un état terminal/planifié/en cours) &rarr; `409 RESOURCE_CONFLICT`.
 - **Corps de requête** : `{ "statutCible": "VALIDEE", "version": 0, "motif": "Créneau confirmé" }`.
 - **Réponse nominale (`200 OK`)** : `RecolteResponseDTO`.
+
+---
+
+### 3.6. Ressources & Calendrier (Jour 6 — Ben Slima)
+
+#### `GET /api/ressources`
+Liste paginée des ressources actives (`actif = true`).
+- **Accès** : `RESPONSABLE_COLLECTE`, `RESPONSABLE_LOGISTIQUE`, `CHEF_EQUIPE`, `ADMINISTRATEUR`.
+- **Paramètres** : `type` (`OUVRIER | TRACTEUR | BENNE`), `statut` (`DISPONIBLE | MAINTENANCE | HORS_SERVICE | INDISPONIBLE`), `page` (défaut 0), `size` (défaut 20, max 100).
+- **Réponse nominale (`200 OK`)** : `PageResponse<RessourceResponseDTO>`.
+
+#### `POST /api/ressources`
+Création d'une ressource (ouvrier, tracteur ou benne).
+- **Accès** : `RESPONSABLE_LOGISTIQUE`, `ADMINISTRATEUR` (`403` sinon).
+- **Règles** : `code` unique et immuable ; `capaciteKg` obligatoire et `> 0` si `type = BENNE` (`400`) ; statut inconnu rejeté en `400` avec valeurs acceptées (`STA-05`).
+- **Réponse nominale (`201 Created`)** + `Location: /api/ressources/{id}`.
+
+#### `GET /api/ressources/{id}`
+Détail d'une ressource active (`404` si introuvable ou inactive).
+
+#### `PUT /api/ressources/{id}`
+Mise à jour d'une ressource (`version` pour verrouillage optimiste `409`).
+- **Accès** : `RESPONSABLE_LOGISTIQUE`, `ADMINISTRATEUR`.
+- **Règle TOU-10** : Passage en `HORS_SERVICE` ou `MAINTENANCE` refusé (`409 RESOURCE_CONFLICT`) si la ressource est affectée à une tournée `PLANIFIEE` ou `EN_COURS`.
+
+#### `DELETE /api/ressources/{id}`
+Suppression logique (`actif = false`).
+- **Accès** : `RESPONSABLE_LOGISTIQUE`, `ADMINISTRATEUR`.
+- **Règle INT-01** : Refusée (`409 RESOURCE_CONFLICT`) si affectée à une tournée `PLANIFIEE` ou `EN_COURS`, avec la liste des tournées concernées.
+
+#### `GET /api/ressources/{id}/calendrier`
+Calendrier des créneaux actifs (`BROUILLON`, `PLANIFIEE`, `EN_COURS`) d'une ressource dans une fenêtre optionnelle `?debut=<ISO-UTC>&fin=<ISO-UTC>`.
+- **Réponse nominale (`200 OK`)** : `CalendrierRessourceDTO` (`creneaux` vide `[]` si aucune tournée — `TOU-23`).
+
+---
+
+### 3.7. Tournées de Collecte (Jour 6 — Ben Slima)
+
+#### `POST /api/tournees`
+Création d'une tournée au statut initial `BROUILLON`.
+- **Accès** : `RESPONSABLE_COLLECTE`, `RESPONSABLE_LOGISTIQUE`, `ADMINISTRATEUR`.
+- **Règles** :
+  - `TOU-04` : `fin > debut` et durée `≤ 12 h` (`400` sinon).
+  - `TOU-01 / TOU-02` : Détection des chevauchements (`debutA < finB + marge && debutB < finA + marge`, marge 0 min par défaut) sur tracteurs, bennes et ouvriers (`409` nommant ressource et tournée). Les créneaux adjacents (ex. fin 12:00 / début 12:00) sont autorisés.
+  - `TOU-14` : Une récolte ne peut appartenir qu'à une seule tournée active et doit être au statut `VALIDEE` (`409`).
+- **Réponse nominale (`201 Created`)** + `Location: /api/tournees/{id}`.
+
+#### `GET /api/tournees`
+Liste paginée des tournées actives (fenêtre optionnelle `?debut=<ISO-UTC>&fin=<ISO-UTC>&page=0&size=20`).
+- **Accès** : `RESPONSABLE_COLLECTE`, `RESPONSABLE_LOGISTIQUE`, `ADMINISTRATEUR` (toutes) ; `CHEF_EQUIPE` (uniquement les tournées où `chefEquipeId == currentUser.id`).
+
+#### `GET /api/tournees/{id}`
+Détail d'une tournée (`403 ACCESS_DENIED` si un `CHEF_EQUIPE` demande une tournée qui ne lui est pas assignée).
+
+#### `PUT /api/tournees/{id}/affectations`
+Mise à jour des créneaux, récoltes, chef d'équipe et ressources d'une tournée (`BROUILLON` ou `PLANIFIEE` avant démarrage ; gelée dès `EN_COURS` &rarr; `409`). Vérifie `@Version` (`409` si obsolète).
+
+#### `POST /api/tournees/{id}/planifier`
+Passe une tournée `BROUILLON` &rarr; `PLANIFIEE`.
+- **Accès** : `RESPONSABLE_COLLECTE`, `RESPONSABLE_LOGISTIQUE`, `ADMINISTRATEUR`.
+- **Règles** :
+  - `TOU-06` : Exige au moins 1 récolte, 1 ouvrier, 1 tracteur et 1 benne (`409` listant les éléments manquants).
+  - `TOU-08` : Capacité cumulée des bennes `≥ quantiteEstimeeKg` (`409` avec capacité manquante en kg).
+  - Transitionne automatiquement chaque récolte associée de `VALIDEE` vers `PLANIFIEE` via `RecolteService`.
+
+#### `POST /api/tournees/{id}/annuler`
+Annule une tournée (`BROUILLON` ou `PLANIFIEE` &rarr; `ANNULEE`). Refusée (`409`) dès `EN_COURS` ou `TERMINEE`.
+

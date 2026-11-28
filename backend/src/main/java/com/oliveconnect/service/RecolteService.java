@@ -277,6 +277,49 @@ public class RecolteService {
         return applyTransition(id, request.getStatutCible(), request.getVersion(), request.getMotif());
     }
 
+    /**
+     * Transition dédiée lors de la planification d'une tournée (J06) :
+     * passe une récolte VALIDEE en PLANIFIEE sans dupliquer la logique d'historique.
+     */
+    public RecolteResponseDTO planifierDepuisTournee(String recolteId, String tourneeCode) {
+        String currentUserId = requireCurrentUserId();
+        Recolte recolte = recolteRepository.findById(recolteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Demande de collecte introuvable : " + recolteId));
+
+        if (!isPlanningStaff()) {
+            throw new AccessDeniedException("Seule l'équipe de collecte ou logistique peut planifier une récolte.");
+        }
+
+        StatutRecolte currentStatus = recolte.getStatut();
+        if (currentStatus != StatutRecolte.VALIDEE) {
+            throw new BusinessConflictException(
+                    "La récolte " + recolte.getReference() + " doit être au statut VALIDEE pour être planifiée (statut actuel : " + currentStatus + ")."
+            );
+        }
+
+        ActorInfo actor = resolveActor(currentUserId);
+        Instant now = Instant.now(clock);
+
+        recolte.setStatut(StatutRecolte.PLANIFIEE);
+        List<HistoriqueStatutRecolte> history = new ArrayList<>(
+                recolte.getHistorique() != null ? recolte.getHistorique() : List.of()
+        );
+        history.add(new HistoriqueStatutRecolte(
+                StatutRecolte.VALIDEE,
+                StatutRecolte.PLANIFIEE,
+                actor.id(),
+                actor.name(),
+                actor.role(),
+                "Planifiée dans la tournée " + tourneeCode,
+                now
+        ));
+        recolte.setHistorique(history);
+
+        Recolte saved = recolteRepository.save(recolte);
+        Verger verger = vergerRepository.findById(saved.getVergerId()).orElse(null);
+        return RecolteResponseDTO.fromEntity(saved, verger);
+    }
+
     private RecolteResponseDTO applyTransition(String id, StatutRecolte targetStatus, Long expectedVersion, String rawMotif) {
         String currentUserId = requireCurrentUserId();
         boolean staff = isStaff();
@@ -466,6 +509,16 @@ public class RecolteService {
         return auth.getAuthorities().stream().anyMatch(a ->
                 "ROLE_ADMINISTRATEUR".equals(a.getAuthority())
                         || "ROLE_RESPONSABLE_COLLECTE".equals(a.getAuthority())
+        );
+    }
+
+    private boolean isPlanningStaff() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return false;
+        return auth.getAuthorities().stream().anyMatch(a ->
+                "ROLE_ADMINISTRATEUR".equals(a.getAuthority())
+                        || "ROLE_RESPONSABLE_COLLECTE".equals(a.getAuthority())
+                        || "ROLE_RESPONSABLE_LOGISTIQUE".equals(a.getAuthority())
         );
     }
 

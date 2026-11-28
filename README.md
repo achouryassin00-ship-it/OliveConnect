@@ -7,6 +7,7 @@ Plateforme de gestion pour la coopérative oléicole de Sfax (Projet ING INFO 2�
 - **Jour 3 (Ben Slima)** : Modélisation MongoDB 7, Indexation explicite (2dsphere, uniques, composés), DataSeeder Sfax et API Vergers/Parcelles/Variétés (52 tests validés).
 - **Jour 4 (Yassine Achour)** : Parcours demandes de collecte, connexion JWT et lecture des vergers connectées ; démonstration isolée `/demo/collectes`.
 - **Jour 5 (Ben Ayed)** : Sécurisation inscription/vergers, API complète des demandes de collecte (`/api/recoltes` avec pagination, recherche/filtres, idempotence, anti-doublon atomique, historique persisté, annulation, `RecolteVergerUsageChecker`) et intégration complète React → Spring Boot → MongoDB (77 tests backend, 30 tests unitaires frontend, 15 E2E + 1 parcours réel live).
+- **Jour 6 (Ben Slima)** : Modélisation et API Ressources (`/api/ressources`) & Tournées (`/api/tournees`), détection des chevauchements et contrôle de capacité, indexation MongoDB explicite (`IXSCAN`), suppression logique protégée, seeder Sfax enrichi (99 tests backend).
 
 ---
 
@@ -44,7 +45,7 @@ L'API est accessible sur `http://localhost:8080` (paramétrable via `SERVER_PORT
 ### Profils et Seeder automatique
 Le profil par défaut est `dev`. Au démarrage en profil `dev` (avec `oliveconnect.seed.enabled=true`) :
 - Les index MongoDB sont créés ou vérifiés de manière explicite et idempotente (`MongoIndexConfig`), y compris les index uniques partiels de la collection `recoltes`.
-- Le seeder Sfax (`DataSeeder`) peuple automatiquement les 4 variétés tunisiennes (`Chemlali`, `Chétoui`, `Zalmati`, `Oueslati`), 5 utilisateurs de démonstration (1 admin, 1 collecte, 3 agriculteurs), 5 vergers avec leurs parcelles et 3 demandes de collecte initiales (`REC-SFX-001`..`003`) avec historique.
+- Le seeder Sfax (`DataSeeder`) peuple automatiquement les 4 variétés tunisiennes (`Chemlali`, `Chétoui`, `Zalmati`, `Oueslati`), 7 utilisateurs de démonstration (admin, collecte, logistique, chef d'équipe, 3 agriculteurs), 5 vergers avec leurs parcelles, 3 demandes de collecte initiales (`REC-SFX-001`..`003`), 20 ressources (10 ouvriers, 4 tracteurs, 6 bennes) et 2 tournées (`T-001`, `T-002`).
 - Le mot de passe par défaut des comptes seedés est configuré via `SEED_DEFAULT_PASSWORD` (par défaut `Password123!` en local).
 
 ---
@@ -83,7 +84,7 @@ Le JWT reste uniquement en mémoire (un rechargement nécessite une reconnexion)
 
 ## 4. Vérification et Tests
 
-### Backend (77 tests automatisés)
+### Backend (99 tests automatisés)
 ```bash
 cd backend
 ./mvnw test
@@ -118,10 +119,12 @@ cd ../frontend && JAVA_HOME=/chemin/vers/jdk21+ python3 scripts/verify-live.py
 ## 5. Visualisation dans MongoDB Compass
 
 1. Ouvrir **MongoDB Compass** et se connecter à `mongodb://localhost:27017/oliveconnect`.
-2. Vérifier les collections créées : `users`, `varietes`, `vergers`, `parcelles`, `recoltes`.
+2. Vérifier les collections créées : `users`, `varietes`, `vergers`, `parcelles`, `recoltes`, `ressources`, `tournees`.
 3. Dans l'onglet **Indexes** :
    - `vergers` : `idx_vergers_code_unique`, `idx_vergers_localisation_2dsphere`, `idx_vergers_owner_actif`.
    - `recoltes` : `idx_recoltes_reference_unique`, `idx_recoltes_owner_statut_date`, `idx_recoltes_verger_statut`, `idx_recoltes_verger_date_active_unique` (partiel unique), `idx_recoltes_owner_idempotency_unique` (partiel unique).
+   - `ressources` : `idx_ressources_code_unique`, `idx_ressources_type_actif_statut`.
+   - `tournees` : `idx_tournees_code_unique`, `idx_tournees_tracteur_debut_fin`, `idx_tournees_benne_debut_fin`, `idx_tournees_ouvrier_debut_fin`, `idx_tournees_statut_debut`, `idx_tournees_recolte`.
 
 ---
 

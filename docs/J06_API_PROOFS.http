@@ -1,0 +1,64 @@
+### OliveConnect — Preuves HTTP Lot J06 (Ressources & Tournées)
+
+@baseUrl = http://127.0.0.1:8080/api
+@token = <JWT_LOGISTIQUE_OU_COLLECTE>
+
+### 0. Authentification (Responsable Logistique)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "logistique@oliveconnect.tn",
+  "password": "Password123!"
+}
+
+### 1. Création d'une tournée valide (201 Created)
+POST {{baseUrl}}/tournees
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "code": "T-DEMO-201",
+  "debut": "2026-12-05T07:00:00Z",
+  "fin": "2026-12-05T11:00:00Z",
+  "recolteIds": ["<RECOLTE_VALIDEE_ID>"],
+  "ouvrierIds": ["<OUV_006_ID>"],
+  "tracteurIds": ["<TR_02_ID>"],
+  "benneIds": ["<BN_04_ID>"]
+}
+
+### 2. Conflit de tracteur sur créneau qui se recoupe (409 Conflict — TOU-01)
+POST {{baseUrl}}/tournees
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "code": "T-DEMO-CONFLIT",
+  "debut": "2026-12-05T09:00:00Z",
+  "fin": "2026-12-05T13:00:00Z",
+  "tracteurIds": ["<TR_02_ID>"]
+}
+
+### 3. Dates invalides : fin antérieure au début (400 Bad Request — TOU-04)
+POST {{baseUrl}}/tournees
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "code": "T-DEMO-BAD-DATE",
+  "debut": "2026-12-05T14:00:00Z",
+  "fin": "2026-12-05T10:00:00Z"
+}
+
+### 4. Capacité des bennes insuffisante à la planification (409 Conflict — TOU-08)
+POST {{baseUrl}}/tournees/<TOURNEE_CAP_INSUFFISANTE_ID>/planifier
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "version": 0
+}
+
+### 5. Suppression d'une ressource affectée à une tournée PLANIFIEE (409 Conflict — INT-01)
+DELETE {{baseUrl}}/ressources/<TR_04_ID>
+Authorization: Bearer {{token}}

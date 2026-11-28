@@ -169,6 +169,51 @@ Demandes de collecte d'olives déposées par les agriculteurs.
 
 ---
 
+### 3.5. Collection `ressources` (Jour 6 — Ben Slima)
+Collection unique discriminée par `type` (`OUVRIER`, `TRACTEUR`, `BENNE`) regroupant les ressources affectables aux tournées.
+
+| Champ | Type BSON | Contraintes | Description |
+|---|---|---|---|
+| `_id` | ObjectId / String | Clé primaire | Identifiant technique |
+| `code` | String | Unique, Majuscules, Immuable | Code métier (`TR-04`, `BN-01`, `OUV-001`) |
+| `type` | String | Enum `TypeRessource` | `OUVRIER`, `TRACTEUR`, `BENNE` |
+| `libelle` | String | 2 à 150 caractères | Nom ou désignation de la ressource |
+| `statut` | String | Enum `StatutRessource` | `DISPONIBLE`, `MAINTENANCE`, `HORS_SERVICE`, `INDISPONIBLE` |
+| `capaciteKg` | Double | Obligatoire et `> 0` si `BENNE` | Charge utile en kg |
+| `actif` | Boolean | Défaut `true` | Suppression logique (INT-03) |
+| `version` | Long | Optimistic locking | Numéro de révision `@Version` |
+| `createdAt` | Date | Audit UTC | Date de création `@CreatedDate` |
+| `updatedAt` | Date | Audit UTC | Date de modification `@LastModifiedDate` |
+
+---
+
+### 3.6. Collection `tournees` (Jour 6 — Ben Slima)
+Regroupement planifié de demandes de récolte et des ressources mobilisées sur un créneau horaire UTC.
+
+| Champ | Type BSON | Contraintes | Description |
+|---|---|---|---|
+| `_id` | ObjectId / String | Clé primaire | Identifiant technique |
+| `code` | String | Unique, Majuscules, Immuable | Code tournée (`T-001`, …) |
+| `debut` | Date | UTC (`Instant`) | Date et heure de début |
+| `fin` | Date | UTC (`Instant`), `> debut` | Date et heure de fin (durée ≤ 12 h) |
+| `statut` | String | Enum `StatutTournee` | `BROUILLON`, `PLANIFIEE`, `EN_COURS`, `TERMINEE`, `ANNULEE`, `INTERROMPUE` |
+| `recolteIds` | Array[String] | Réf. `recoltes._id` | Récoltes incluses (chacune dans 1 seule tournée active) |
+| `chefEquipeId` | String | Réf. `users._id` (nullable) | Chef d'équipe assigné |
+| `ouvrierIds` | Array[String] | Réf. `ressources._id` | Ouvriers affectés |
+| `tracteurIds` | Array[String] | Réf. `ressources._id` | Tracteurs affectés |
+| `benneIds` | Array[String] | Réf. `ressources._id` | Bennes affectées |
+| `quantiteEstimeeKg` | Double | Somme calculée | Somme des estimations des récoltes incluses |
+| `actif` | Boolean | Défaut `true` | Suppression logique |
+| `version` | Long | Optimistic locking | Numéro de révision `@Version` |
+| `createdAt` | Date | Audit UTC | Date de création `@CreatedDate` |
+| `updatedAt` | Date | Audit UTC | Date de modification `@LastModifiedDate` |
+
+> **Justification du référencement des ressources et récoltes** : Les ressources sont partagées entre plusieurs tournées dans le temps et doivent permettre l'affichage d'un calendrier individuel par ressource (`GET /api/ressources/{id}/calendrier`). De plus, séparer les tableaux par type (`tracteurIds`, `benneIds`, `ouvrierIds`) permet à MongoDB de créer un index composé distinct par type (un index composé MongoDB ne pouvant contenir qu'un seul champ multikey/tableau) et garantit des recherches de chevauchement en `IXSCAN`.
+>
+> **Note sur la concurrence entre documents (TOU-03 / CON-01)** : Sur un nœud MongoDB standalone (sans replica set), la séquence « lecture des chevauchements + écriture de la tournée » n'est pas atomique entre documents. La mitigation retenue repose sur `@Version` sur `Tournee` et `Ressource` (protégeant contre les modifications concurrentes d'une même entité avec `409 Conflict`). L'atomicité stricte inter-documents nécessiterait des transactions multi-documents sur replica set (hors périmètre J06).
+
+---
+
 ## 4. Index MongoDB et Requêtes associées
 
 Les index sont créés de manière explicite et idempotente au démarrage de l'application via `MongoIndexConfig` :
@@ -187,6 +232,14 @@ Les index sont créés de manière explicite et idempotente au démarrage de l'a
 | `recoltes` | `idx_recoltes_verger_statut` | `{ "vergerId": 1, "statut": 1 }` | Contrôle réel `RecolteVergerUsageChecker` avant archivage d'un verger |
 | `recoltes` | `idx_recoltes_verger_date_active_unique` | `{ "vergerId": 1, "dateSouhaitee": 1 }` (unique partiel sur statuts actifs) | Protection atomique contre les doublons actifs |
 | `recoltes` | `idx_recoltes_owner_idempotency_unique` | `{ "proprietaireId": 1, "idempotencyKey": 1 }` (unique partiel si string) | Idempotence concurrente sur `POST /api/recoltes` |
+| `ressources` | `idx_ressources_code_unique` | `{ "code": 1 }` (unique) | Unicité et recherche par code ressource |
+| `ressources` | `idx_ressources_type_actif_statut` | `{ "type": 1, "actif": 1, "statut": 1 }` | Filtrage paginé par type et disponibilité |
+| `tournees` | `idx_tournees_code_unique` | `{ "code": 1 }` (unique) | Unicité et recherche par code tournée |
+| `tournees` | `idx_tournees_tracteur_debut_fin` | `{ "tracteurIds": 1, "debut": 1, "fin": 1 }` | Détection chevauchement tracteurs (`IXSCAN` vérifié) |
+| `tournees` | `idx_tournees_benne_debut_fin` | `{ "benneIds": 1, "debut": 1, "fin": 1 }` | Détection chevauchement bennes |
+| `tournees` | `idx_tournees_ouvrier_debut_fin` | `{ "ouvrierIds": 1, "debut": 1, "fin": 1 }` | Détection chevauchement ouvriers |
+| `tournees` | `idx_tournees_statut_debut` | `{ "statut": 1, "debut": 1 }` | Planning et filtrage par fenêtre temporelle |
+| `tournees` | `idx_tournees_recolte` | `{ "recolteIds": 1 }` | Unicité récolte par tournée active (TOU-14) |
 
 ---
 

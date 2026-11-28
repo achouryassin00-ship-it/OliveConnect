@@ -1,77 +1,79 @@
-# Passation — Jour 5 vers Jour 6
+# Passation — Jour 6 vers Jour 7
 
-- **Auteur sortant (Jour 5)** : Ben Ayed.
-- **Prochain responsable (Jour 6)** : Ben Slima (Tournées, Ressources & Suite).
-- **Branche** : `feat/j05-harvest-api`, créée depuis `main` (`40cfa2b`, incluant PR #4 J04).
-- **Livraison** : commits locaux uniquement et résumé PR dans [docs/PR_J05.md](docs/PR_J05.md) (aucun push ni fusion sans confirmation).
-- **Archives** : [docs/HANDOFF_J03.md](docs/HANDOFF_J03.md), [docs/HANDOFF_J04.md](docs/HANDOFF_J04.md).
-
----
-
-## 1. Sécurité & Correctifs Prioritaires Réalisés
-
-1. **Élévation de privilèges sur inscription publique (`AuthService.register`)** :
-   - Toute demande contenant un rôle différent de `AGRICULTEUR` est rejetée en `403 ACCESS_DENIED`.
-   - Le compte créé reçoit systématiquement uniquement `Role.AGRICULTEUR`.
-2. **Autorisation sur création de vergers (`VergerController.createVerger`)** :
-   - Ajout de `@PreAuthorize("hasRole('AGRICULTEUR')")`.
-   - `proprietaireId` reste déduit uniquement du principal authentifié (`AUT-02`).
-3. **Sécurité `SecurityService`** :
-   - Rejet explicite des jetons `AnonymousAuthenticationToken`.
-4. **CORS (`SecurityConfig`)** :
-   - Autorisation de l'en-tête `Idempotency-Key` et exposition de `X-Idempotent-Replay`.
-5. **Gestion d'erreurs JSON/types (`GlobalExceptionHandler`)** :
-   - `HttpMessageNotReadableException` et `MethodArgumentTypeMismatchException` retournent `400 VALIDATION_ERROR` au lieu de `500`.
+- **Auteur sortant (Jour 6)** : Ben Slima (Ressources, Tournées, Index MongoDB & Seed Sfax).
+- **Prochain responsable (Jour 7)** : Yassine Achour (Frontend calendrier des ressources, tournées & vue mobile chef d'équipe).
+- **Branche** : `feat/j06-ressources-tournees`, créée depuis `main` (`4c80303`, incluant PR #5 J05).
+- **Livraison** : commits atomiques locaux et résumé PR dans [docs/PR_J06.md](docs/PR_J06.md) (PR à ouvrir vers `main`, sans fusion automatique).
+- **Archives** : [docs/HANDOFF_J03.md](docs/HANDOFF_J03.md), [docs/HANDOFF_J04.md](docs/HANDOFF_J04.md), [docs/PR_J05.md](docs/PR_J05.md).
 
 ---
 
-## 2. API Demandes de Collecte (`/api/recoltes`) & MongoDB
+## 1. Modèles, Repositories & Index MongoDB (J06)
 
-- **Collection `recoltes`** (`Recolte`, `HistoriqueStatutRecolte`, `StatutRecolte`) et `RecolteRepository`.
+- **Collection `ressources`** (`Ressource`, `TypeRessource`, `StatutRessource`, `RessourceRepository`) :
+  - Types : `OUVRIER`, `TRACTEUR`, `BENNE`.
+  - Statuts : `DISPONIBLE`, `MAINTENANCE`, `HORS_SERVICE`, `INDISPONIBLE`.
+  - `capaciteKg` obligatoire et `> 0` pour `BENNE`.
+- **Collection `tournees`** (`Tournee`, `StatutTournee`, `TourneeRepository`) :
+  - Machine à états `StatutTournee.peutPasserA(...)` : `BROUILLON → PLANIFIEE → EN_COURS → TERMINEE`, annulation avant démarrage (`BROUILLON` / `PLANIFIEE` → `ANNULEE`), `EN_COURS → INTERROMPUE`.
+  - J06 expose `BROUILLON`, `PLANIFIEE` et `ANNULEE` (`EN_COURS` / `TERMINEE` réservés à la suite terrain).
 - **Index MongoDB (`MongoIndexConfig`)** :
-  - `idx_recoltes_reference_unique` (unique sur `reference`)
-  - `idx_recoltes_owner_statut_date` (`{ proprietaireId: 1, statut: 1, dateSouhaitee: 1 }`)
-  - `idx_recoltes_verger_statut` (`{ vergerId: 1, statut: 1 }`)
-  - `idx_recoltes_verger_date_active_unique` (unique partiel `{ vergerId: 1, dateSouhaitee: 1 }` pour statuts `DEMANDEE`, `VALIDEE`, `PLANIFIEE`, `EN_COURS`)
-  - `idx_recoltes_owner_idempotency_unique` (unique partiel `{ proprietaireId: 1, idempotencyKey: 1 }` pour `idempotencyKey` string)
-- **Endpoints disponibles** :
-  - `POST /api/recoltes` (`AGRICULTEUR`) : création avec dérivation stricte du propriétaire, contrôle verger existant/propre/actif (`404` anti-IDOR / `400` inactif), date `>= aujourd'hui (Africa/Tunis)`, quantité facultative (`> 0`, `≤ 500 000 kg`, 3 décimales max), motif obligatoire si `urgent`, anti-doublon actif (`409`) et idempotence `Idempotency-Key` (`201` ou `200` + `X-Idempotent-Replay: true`, `409` si payload différent).
-  - `GET /api/recoltes` (`AGRICULTEUR` filtré par propriétaire ; `RESPONSABLE_COLLECTE` / `ADMINISTRATEUR` vue globale) : pagination + filtres `q`, `statut`, `urgent`, `vergerId`, `dateDebut`, `dateFin`.
-  - `GET /api/recoltes/{id}` : détail + `historique` réellement persisté (`404` anti-IDOR).
-  - `POST /api/recoltes/{id}/annuler` : annulation autorisée uniquement depuis `DEMANDEE` ou `VALIDEE`, avec verrouillage optimiste `@Version` et trace d'historique (`409` depuis `PLANIFIEE`, `EN_COURS`, etc.).
-  - `POST /api/recoltes/{id}/transitions` : transitions J05 (`VALIDEE`/`REFUSEE` par staff depuis `DEMANDEE`, `ANNULEE` depuis `DEMANDEE`/`VALIDEE` ; autres refusées en `409`).
-- **Remplacement du checker provisoire** :
-  - `RecolteVergerUsageChecker` (`@Service @Primary`) interroge `RecolteRepository.existsByVergerIdAndStatutIn` pour bloquer en `409` la suppression logique d'un verger ayant des demandes actives.
-- **DataSeeder idempotent** :
-  - Ajout de 3 demandes initiales (`REC-SFX-001` à `REC-SFX-003`) avec historique pour Ali et Fatma.
+  - `ressources` : `idx_ressources_code_unique`, `idx_ressources_type_actif_statut`.
+  - `tournees` : `idx_tournees_code_unique`, `idx_tournees_tracteur_debut_fin`, `idx_tournees_benne_debut_fin`, `idx_tournees_ouvrier_debut_fin`, `idx_tournees_statut_debut`, `idx_tournees_recolte`.
+  - Exécution en `IXSCAN` vérifiée via `explain()` dans `TourneeRessourceIntegrationTest`.
 
 ---
 
-## 3. Intégration React
+## 2. API Ressources & Tournées (Contrats pour le Frontend J07)
 
-- `src/api/harvests.ts` branché sur `/api/recoltes` (`harvestCapabilities` toutes à `true`) avec mapping `RecolteDTO` ↔ `HarvestRequestView`, envoi `Idempotency-Key` (conservée en cas de panne réseau pour rejeu idempotent), et traduction des `fieldErrors`.
-- `src/features/harvests/` : liste paginée serveur avec recherche et filtres, création réelle avec blocage double-clic et préservation de saisie après erreur / reconnexion 401, détail avec chronologie `historique` réelle, et annulation avec confirmation inline + motif optionnel.
-- `/demo/collectes` conservé strictement séparé et sans appel API.
-- `frontend/package.json`, `playwright.config.ts`, `playwright.live.config.ts` et `scripts/verify-live.py` rendus compatibles macOS/Linux en plus de Windows.
+Toutes les routes sont documentées en détail dans [docs/API_CONTRACT.md](docs/API_CONTRACT.md) (§3.6 et §3.7).
+
+### Ressources (`/api/ressources`)
+- `GET /api/ressources?type=&statut=&page=0&size=20` : liste paginée des ressources actives (`RESPONSABLE_COLLECTE`, `RESPONSABLE_LOGISTIQUE`, `CHEF_EQUIPE`, `ADMINISTRATEUR`).
+- `POST /api/ressources` (`RESPONSABLE_LOGISTIQUE`, `ADMINISTRATEUR`) : création (`201 Created`).
+- `GET /api/ressources/{id}` : détail d'une ressource active (`404` sinon).
+- `PUT /api/ressources/{id}` (`RESPONSABLE_LOGISTIQUE`, `ADMINISTRATEUR`) : mise à jour avec `version` (`409` si passage `HORS_SERVICE` / `MAINTENANCE` alors qu'elle est affectée à une tournée `PLANIFIEE` ou `EN_COURS` — `TOU-10`).
+- `DELETE /api/ressources/{id}` (`RESPONSABLE_LOGISTIQUE`, `ADMINISTRATEUR`) : suppression logique `actif = false` (`409` avec la liste des tournées si affectée — `INT-01`).
+- `GET /api/ressources/{id}/calendrier?debut=&fin=` : créneaux actifs (`BROUILLON`, `PLANIFIEE`, `EN_COURS`) pour l'affichage calendrier (`creneaux: []` si libre).
+
+### Tournées (`/api/tournees`)
+- `POST /api/tournees` (`RESPONSABLE_COLLECTE`, `RESPONSABLE_LOGISTIQUE`, `ADMINISTRATEUR`) : création en `BROUILLON` (`201 Created`), contrôle `fin > debut` et durée `≤ 12 h` (`400`), détection des chevauchements sur tracteurs/bennes/ouvriers (`409`), récoltes `VALIDEE` non déjà affectées (`409`).
+- `GET /api/tournees?debut=&fin=&page=0&size=20` : liste paginée (vue globale pour staff ; filtrée sur `chefEquipeId == currentUser.id` pour `CHEF_EQUIPE`).
+- `GET /api/tournees/{id}` : détail (`403 ACCESS_DENIED` si `CHEF_EQUIPE` consulte une tournée qui ne lui est pas assignée).
+- `PUT /api/tournees/{id}/affectations` : modification des créneaux, récoltes, chef d'équipe et ressources (gelée dès `EN_COURS` → `409`).
+- `POST /api/tournees/{id}/planifier` : passage `BROUILLON → PLANIFIEE` ; vérifie `≥ 1` récolte/ouvrier/tracteur/benne (`TOU-06` → `409`), capacité cumulée des bennes `≥ quantiteEstimeeKg` (`TOU-08` → `409`) et passe automatiquement les récoltes de `VALIDEE` à `PLANIFIEE` via `RecolteService.planifierDepuisTournee`.
+- `POST /api/tournees/{id}/annuler` : annulation `BROUILLON` / `PLANIFIEE` → `ANNULEE` (`409` dès `EN_COURS` ou `TERMINEE`).
 
 ---
 
-## 4. Tests Vérifiés
+## 3. Comptes & Données de Démonstration (Sfax)
 
-- **Backend Maven (`cd backend && ./mvnw -B -ntp test`)** : **77/77 tests réussis** (0 échec, 0 erreur, 0 ignoré), incluant tests unitaires (`AuthServiceTest`, `RecolteServiceTest`), sécurité MockMvc (`AuthControllerTest`, `VergerControllerTest`, `RecolteControllerTest`) et intégration MongoDB + concurrence multi-threads (`MongoIndexAndGeoIntegrationTest`, `RecolteMongoIntegrationTest`).
-- **Frontend statique & unitaire** : `npm run build`, `npm run typecheck`, `npm run lint` sans erreur ; **30/30** tests Vitest réussis (`4` fichiers).
-- **Playwright E2E (réponses API interceptées + démo, `npm run test:e2e`)** : **15/15** tests réussis sous Chromium.
-- **Parcours réel React → Spring Boot → MongoDB (`python3 scripts/verify-live.py`)** : **1/1** scénario complet réussi sur base QA isolée (`oliveconnect_j05_qa_4606abd4`) : 401 sans jeton, 403 élévation de privilèges à l'inscription, 404 verger étranger, création réelle de récolte, historique persisté, annulation avec confirmation, responsive 320 px, déconnexion et isolation IDOR entre Ali et Fatma.
+Seedés automatiquement au démarrage en profil `dev` (`SEED_DEFAULT_PASSWORD=Password123!` par défaut) :
+- **Nouveaux comptes J06** :
+  - `logistique@oliveconnect.tn` (`RESPONSABLE_LOGISTIQUE`)
+  - `chef.equipe@oliveconnect.tn` (`CHEF_EQUIPE`)
+- **Comptes existants** : `admin@oliveconnect.tn`, `collecte@oliveconnect.tn`, `ali.benmbarek@sfax.tn`, `fatma.triki@sfax.tn`, `habib.kammoun@sfax.tn`.
+- **Ressources** : 10 ouvriers (`OUV-001`..`010`), 4 tracteurs (`TR-01`..`TR-04` dont `TR-04` New Holland et `TR-03` `HORS_SERVICE`), 6 bennes de 2000 kg (`BN-01`..`BN-06`).
+- **Tournées** : `T-001` (`PLANIFIEE`) et `T-002` (`BROUILLON`).
 
 ---
 
-## 5. Limites Connues & Tâches Restantes pour Ben Slima (Jour 6)
+## 4. Tests & Preuves Vérifiés
 
-1. **Absence du dossier maître PDF dans le dépôt** : Aucun fichier `.pdf` n'était présent dans le workspace. Les règles ont été consolidées depuis `docs/API_CONTRACT.md`, `docs/J04_INTEGRATION.md`, `docs/HANDOFF_J03.md` et l'historique J01 (`b7a5a4f:docs/API_CONTRACT.md`).
-2. **Périmètre des alertes** : Les demandes urgentes (`urgent`, `motifUrgence`) sont traitées dans `/api/recoltes`. Aucun module autonome `/api/alertes` (`FieldAlert`) n'a été inventé faute de spécification PDF ; vérifier dans le dossier maître s'il relève du Jour 6+.
-3. **Intégration Tournées (`Tour`) & Ressources au Jour 6** :
-   - Implémenter les tournées (`/api/tournees`), ressources (`/api/ressources`) et la transition `VALIDEE -> PLANIFIEE -> EN_COURS -> LIVREE / INTERROMPUE` pilotée par le cycle de vie des tournées.
-   - Enrichir `RecolteVergerUsageChecker` (ou un composite `VergerUsageChecker`) si des tournées actives doivent aussi empêcher la suppression de vergers/parcelles.
-4. **Révocation JWT & Secrets de production** :
-   - `POST /api/auth/logout` reste sans liste noire serveur (comportement J02 documenté).
-   - Remplacer les valeurs par défaut `JWT_SECRET` et `SEED_DEFAULT_PASSWORD` hors environnement local.
+- **Backend Maven (`cd backend && .\mvnw.cmd -B -ntp test`)** : **99/99 tests réussis** (0 échec, 0 erreur, 0 ignoré) — inclut les 77 tests J02/J03/J05 et 22 nouveaux tests J06 (`RessourceServiceTest`, `TourneeServiceTest`, `RessourceControllerTest`, `TourneeControllerTest`, `TourneeRessourceIntegrationTest`).
+- **Preuves HTTP live sur base MongoDB isolée** :
+  - `201 Created` sur création de tournée valide
+  - `409 Conflict` sur chevauchement de tracteur (`TR-02`)
+  - `400 Bad Request` sur dates invalides (`fin <= debut`)
+  - `409 Conflict` sur capacité de bennes insuffisante à la planification
+  - `409 Conflict` sur suppression logique d'une ressource affectée à `T-001`
+
+---
+
+## 5. Risques, Limites & Instructions de Reprise (J07)
+
+1. **Concurrence multi-documents** : MongoDB tourne en standalone sans replica set ; l'atomicité inter-documents n'est pas transactionnelle (mitigée par `@Version` sur `Tournee` et `Ressource`).
+2. **Démarrage/Clôture terrain** : `EN_COURS` et `TERMINEE` sont déclarés dans `StatutTournee` mais leurs endpoints terrain ne font pas partie de J06 (prévoir si nécessaire au J07/J08).
+3. **Démarrer le backend pour J07** :
+   - `cd backend && .\mvnw.cmd spring-boot:run` (port `8080`, MongoDB sur `127.0.0.1:27017`).
+   - Les formats de requêtes/réponses et codes d'erreur (`400`, `401`, `403`, `404`, `409`) sont alignés avec `GlobalExceptionHandler` et [docs/API_CONTRACT.md](docs/API_CONTRACT.md).

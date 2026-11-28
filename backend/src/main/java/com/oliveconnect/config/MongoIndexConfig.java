@@ -2,6 +2,8 @@ package com.oliveconnect.config;
 
 import com.oliveconnect.entity.Parcelle;
 import com.oliveconnect.entity.Recolte;
+import com.oliveconnect.entity.Ressource;
+import com.oliveconnect.entity.Tournee;
 import com.oliveconnect.entity.User;
 import com.oliveconnect.entity.Variete;
 import com.oliveconnect.entity.Verger;
@@ -39,6 +41,8 @@ public class MongoIndexConfig {
         createParcellesIndexes();
         createVarietesIndexes();
         createRecoltesIndexes();
+        createRessourcesIndexes();
+        createTourneesIndexes();
 
         log.info("Tous les index MongoDB ont été initialisés avec succès.");
     }
@@ -145,5 +149,62 @@ public class MongoIndexConfig {
                 .named("idx_recoltes_owner_idempotency_unique");
         mongoTemplate.indexOps(Recolte.class).ensureIndex(idempotencyIndex);
         log.info("Index créé ou vérifié : recoltes [idx_recoltes_owner_idempotency_unique]");
+    }
+
+    public void createRessourcesIndexes() {
+        Index codeIndex = new Index().on("code", Sort.Direction.ASC).unique().named("idx_ressources_code_unique");
+        mongoTemplate.indexOps(Ressource.class).ensureIndex(codeIndex);
+        log.info("Index créé ou vérifié : ressources [idx_ressources_code_unique]");
+
+        Index typeActifStatutIndex = new Index()
+                .on("type", Sort.Direction.ASC)
+                .on("actif", Sort.Direction.ASC)
+                .on("statut", Sort.Direction.ASC)
+                .named("idx_ressources_type_actif_statut");
+        mongoTemplate.indexOps(Ressource.class).ensureIndex(typeActifStatutIndex);
+        log.info("Index créé ou vérifié : ressources [idx_ressources_type_actif_statut]");
+    }
+
+    public void createTourneesIndexes() {
+        Index codeIndex = new Index().on("code", Sort.Direction.ASC).unique().named("idx_tournees_code_unique");
+        mongoTemplate.indexOps(Tournee.class).ensureIndex(codeIndex);
+        log.info("Index créé ou vérifié : tournees [idx_tournees_code_unique]");
+
+        Index tracteurCreneauIndex = new Index()
+                .on("tracteurIds", Sort.Direction.ASC)
+                .on("debut", Sort.Direction.ASC)
+                .on("fin", Sort.Direction.ASC)
+                .named("idx_tournees_tracteur_debut_fin");
+        mongoTemplate.indexOps(Tournee.class).ensureIndex(tracteurCreneauIndex);
+        log.info("Index créé ou vérifié : tournees [idx_tournees_tracteur_debut_fin]");
+
+        Index benneCreneauIndex = new Index()
+                .on("benneIds", Sort.Direction.ASC)
+                .on("debut", Sort.Direction.ASC)
+                .on("fin", Sort.Direction.ASC)
+                .named("idx_tournees_benne_debut_fin");
+        mongoTemplate.indexOps(Tournee.class).ensureIndex(benneCreneauIndex);
+        log.info("Index créé ou vérifié : tournees [idx_tournees_benne_debut_fin]");
+
+        Index ouvrierCreneauIndex = new Index()
+                .on("ouvrierIds", Sort.Direction.ASC)
+                .on("debut", Sort.Direction.ASC)
+                .on("fin", Sort.Direction.ASC)
+                .named("idx_tournees_ouvrier_debut_fin");
+        mongoTemplate.indexOps(Tournee.class).ensureIndex(ouvrierCreneauIndex);
+        log.info("Index créé ou vérifié : tournees [idx_tournees_ouvrier_debut_fin]");
+
+        Index statutDebutIndex = new Index()
+                .on("statut", Sort.Direction.ASC)
+                .on("debut", Sort.Direction.ASC)
+                .named("idx_tournees_statut_debut");
+        mongoTemplate.indexOps(Tournee.class).ensureIndex(statutDebutIndex);
+        log.info("Index créé ou vérifié : tournees [idx_tournees_statut_debut]");
+
+        Index recolteIndex = new Index()
+                .on("recolteIds", Sort.Direction.ASC)
+                .named("idx_tournees_recolte");
+        mongoTemplate.indexOps(Tournee.class).ensureIndex(recolteIndex);
+        log.info("Index créé ou vérifié : tournees [idx_tournees_recolte]");
     }
 }

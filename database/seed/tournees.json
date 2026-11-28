@@ -1,0 +1,24 @@
+[
+  {
+    "code": "T-001",
+    "zone": "Mahrès & Sakiet Ezzit",
+    "statut": "PLANIFIEE",
+    "recolteCodes": ["REC-SFX-002"],
+    "ouvrierCodes": ["OUV-001", "OUV-002", "OUV-003"],
+    "tracteurCodes": ["TR-04"],
+    "benneCodes": ["BN-01"],
+    "quantiteEstimeeKg": 1800.0,
+    "note": "Tournée planifiée mobilisant TR-04 New Holland (permet de démontrer un conflit TOU-01 si TR-04 est réaffecté sur le même créneau)."
+  },
+  {
+    "code": "T-002",
+    "zone": "El Amra & El Hencha",
+    "statut": "BROUILLON",
+    "recolteCodes": [],
+    "ouvrierCodes": ["OUV-004", "OUV-005"],
+    "tracteurCodes": ["TR-01"],
+    "benneCodes": ["BN-02", "BN-03"],
+    "quantiteEstimeeKg": 0.0,
+    "note": "Brouillon de tournée prêt pour affectation de récoltes et planification."
+  }
+]

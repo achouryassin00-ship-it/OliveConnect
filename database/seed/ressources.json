@@ -1,0 +1,22 @@
+[
+  { "code": "OUV-001", "type": "OUVRIER", "libelle": "Kamel Gharbi", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "OUV-002", "type": "OUVRIER", "libelle": "Nabil Bouaziz", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "OUV-003", "type": "OUVRIER", "libelle": "Walid Trabelsi", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "OUV-004", "type": "OUVRIER", "libelle": "Bilel Jarray", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "OUV-005", "type": "OUVRIER", "libelle": "Houssem Ayadi", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "OUV-006", "type": "OUVRIER", "libelle": "Zied Ellouze", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "OUV-007", "type": "OUVRIER", "libelle": "Mehdi Rekik", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "OUV-008", "type": "OUVRIER", "libelle": "Anis Sellami", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "OUV-009", "type": "OUVRIER", "libelle": "Youssef Frikha", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "OUV-010", "type": "OUVRIER", "libelle": "Karim Masmoudi", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "TR-01", "type": "TRACTEUR", "libelle": "Massey Ferguson 240", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "TR-02", "type": "TRACTEUR", "libelle": "John Deere 5055E", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "TR-03", "type": "TRACTEUR", "libelle": "Landini Rex (Panne moteur)", "statut": "HORS_SERVICE", "capaciteKg": null, "actif": true },
+  { "code": "TR-04", "type": "TRACTEUR", "libelle": "New Holland T5", "statut": "DISPONIBLE", "capaciteKg": null, "actif": true },
+  { "code": "BN-01", "type": "BENNE", "libelle": "Benne basculante 2T #1", "statut": "DISPONIBLE", "capaciteKg": 2000.0, "actif": true },
+  { "code": "BN-02", "type": "BENNE", "libelle": "Benne basculante 2T #2", "statut": "DISPONIBLE", "capaciteKg": 2000.0, "actif": true },
+  { "code": "BN-03", "type": "BENNE", "libelle": "Benne basculante 2T #3", "statut": "DISPONIBLE", "capaciteKg": 2000.0, "actif": true },
+  { "code": "BN-04", "type": "BENNE", "libelle": "Benne basculante 2T #4", "statut": "DISPONIBLE", "capaciteKg": 2000.0, "actif": true },
+  { "code": "BN-05", "type": "BENNE", "libelle": "Benne basculante 2T #5", "statut": "DISPONIBLE", "capaciteKg": 2000.0, "actif": true },
+  { "code": "BN-06", "type": "BENNE", "libelle": "Benne basculante 2T #6", "statut": "DISPONIBLE", "capaciteKg": 2000.0, "actif": true }
+]

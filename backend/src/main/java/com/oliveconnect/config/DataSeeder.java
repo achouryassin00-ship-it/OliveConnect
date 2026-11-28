@@ -3,6 +3,8 @@ package com.oliveconnect.config;
 import com.oliveconnect.entity.*;
 import com.oliveconnect.repository.ParcelleRepository;
 import com.oliveconnect.repository.RecolteRepository;
+import com.oliveconnect.repository.RessourceRepository;
+import com.oliveconnect.repository.TourneeRepository;
 import com.oliveconnect.repository.UserRepository;
 import com.oliveconnect.repository.VarieteRepository;
 import com.oliveconnect.repository.VergerRepository;
@@ -32,6 +34,8 @@ public class DataSeeder implements CommandLineRunner {
     private final VergerRepository vergerRepository;
     private final ParcelleRepository parcelleRepository;
     private final RecolteRepository recolteRepository;
+    private final RessourceRepository ressourceRepository;
+    private final TourneeRepository tourneeRepository;
     private final PasswordEncoder passwordEncoder;
     private final String defaultPassword;
 
@@ -43,6 +47,8 @@ public class DataSeeder implements CommandLineRunner {
                       VergerRepository vergerRepository,
                       ParcelleRepository parcelleRepository,
                       RecolteRepository recolteRepository,
+                      RessourceRepository ressourceRepository,
+                      TourneeRepository tourneeRepository,
                       PasswordEncoder passwordEncoder,
                       @Value("${oliveconnect.seed.default-password:Password123!}") String defaultPassword) {
         this.varieteRepository = varieteRepository;
@@ -50,6 +56,8 @@ public class DataSeeder implements CommandLineRunner {
         this.vergerRepository = vergerRepository;
         this.parcelleRepository = parcelleRepository;
         this.recolteRepository = recolteRepository;
+        this.ressourceRepository = ressourceRepository;
+        this.tourneeRepository = tourneeRepository;
         this.passwordEncoder = passwordEncoder;
         this.defaultPassword = defaultPassword;
     }
@@ -72,9 +80,11 @@ public class DataSeeder implements CommandLineRunner {
         Variete zalmati = upsertVariete("ZALMATI", "Zalmati de Zarzis/Sfax", 0.60, 2.0, true);
         Variete oueslati = upsertVariete("OUESLATI", "Oueslati", 0.68, 1.9, true);
 
-        // 2. Utilisateurs (1 Admin, 1 Responsable Collecte, 3 Agriculteurs avec patronymes arabes/apostrophes CPT-06)
+        // 2. Utilisateurs (1 Admin, 1 Responsable Collecte, 1 Logistique, 1 Chef d'équipe, 3 Agriculteurs)
         User admin = upsertUser("Mohamed Admin", "admin@oliveconnect.tn", Set.of(Role.ADMINISTRATEUR));
         User collecte = upsertUser("Sami Responsable", "collecte@oliveconnect.tn", Set.of(Role.RESPONSABLE_COLLECTE));
+        upsertUser("Nizar Logistique", "logistique@oliveconnect.tn", Set.of(Role.RESPONSABLE_LOGISTIQUE));
+        User chef = upsertUser("Tarek Chef Equipe", "chef@oliveconnect.tn", Set.of(Role.CHEF_EQUIPE));
         User ali = upsertUser("Ali Ben M'Barek", "ali.benmbarek@sfax.tn", Set.of(Role.AGRICULTEUR));
         User fatma = upsertUser("Fatma Triki", "fatma.triki@sfax.tn", Set.of(Role.AGRICULTEUR));
         User habib = upsertUser("Habib Kammoun", "habib.kammoun@sfax.tn", Set.of(Role.AGRICULTEUR));
@@ -127,7 +137,7 @@ public class DataSeeder implements CommandLineRunner {
                 ))
         );
 
-        upsertRecolte(
+        Recolte rec2 = upsertRecolte(
                 "REC-SFX-002",
                 ali.getId(),
                 vrg2.getId(),
@@ -171,9 +181,46 @@ public class DataSeeder implements CommandLineRunner {
                 ))
         );
 
-        log.info("Peuplement des données terminé : Variétés={}, Utilisateurs={}, Vergers={}, Parcelles={}, Récoltes={}",
+        // 5. Ressources (10 ouvriers, 4 tracteurs dont TR-04 New Holland et 1 HORS_SERVICE, 6 bennes 2000 kg)
+        Ressource ouv1 = upsertRessource("OUV-001", TypeRessource.OUVRIER, "Kamel Gharbi", StatutRessource.DISPONIBLE, null);
+        Ressource ouv2 = upsertRessource("OUV-002", TypeRessource.OUVRIER, "Nabil Bouaziz", StatutRessource.DISPONIBLE, null);
+        Ressource ouv3 = upsertRessource("OUV-003", TypeRessource.OUVRIER, "Walid Trabelsi", StatutRessource.DISPONIBLE, null);
+        Ressource ouv4 = upsertRessource("OUV-004", TypeRessource.OUVRIER, "Bilel Jarray", StatutRessource.DISPONIBLE, null);
+        Ressource ouv5 = upsertRessource("OUV-005", TypeRessource.OUVRIER, "Houssem Ayadi", StatutRessource.DISPONIBLE, null);
+        upsertRessource("OUV-006", TypeRessource.OUVRIER, "Zied Ellouze", StatutRessource.DISPONIBLE, null);
+        upsertRessource("OUV-007", TypeRessource.OUVRIER, "Mehdi Rekik", StatutRessource.DISPONIBLE, null);
+        upsertRessource("OUV-008", TypeRessource.OUVRIER, "Anis Sellami", StatutRessource.DISPONIBLE, null);
+        upsertRessource("OUV-009", TypeRessource.OUVRIER, "Youssef Frikha", StatutRessource.DISPONIBLE, null);
+        upsertRessource("OUV-010", TypeRessource.OUVRIER, "Karim Masmoudi", StatutRessource.DISPONIBLE, null);
+
+        Ressource tr1 = upsertRessource("TR-01", TypeRessource.TRACTEUR, "Massey Ferguson 240", StatutRessource.DISPONIBLE, null);
+        upsertRessource("TR-02", TypeRessource.TRACTEUR, "John Deere 5055E", StatutRessource.DISPONIBLE, null);
+        upsertRessource("TR-03", TypeRessource.TRACTEUR, "Landini Rex (Panne moteur)", StatutRessource.HORS_SERVICE, null);
+        Ressource tr4 = upsertRessource("TR-04", TypeRessource.TRACTEUR, "New Holland T5", StatutRessource.DISPONIBLE, null);
+
+        Ressource bn1 = upsertRessource("BN-01", TypeRessource.BENNE, "Benne basculante 2T #1", StatutRessource.DISPONIBLE, 2000.0);
+        Ressource bn2 = upsertRessource("BN-02", TypeRessource.BENNE, "Benne basculante 2T #2", StatutRessource.DISPONIBLE, 2000.0);
+        Ressource bn3 = upsertRessource("BN-03", TypeRessource.BENNE, "Benne basculante 2T #3", StatutRessource.DISPONIBLE, 2000.0);
+        upsertRessource("BN-04", TypeRessource.BENNE, "Benne basculante 2T #4", StatutRessource.DISPONIBLE, 2000.0);
+        upsertRessource("BN-05", TypeRessource.BENNE, "Benne basculante 2T #5", StatutRessource.DISPONIBLE, 2000.0);
+        upsertRessource("BN-06", TypeRessource.BENNE, "Benne basculante 2T #6", StatutRessource.DISPONIBLE, 2000.0);
+
+        // 6. Tournées de démonstration (permettant la démonstration d'un conflit TOU-01 sur TR-04)
+        Instant t1Debut = todayTunis.plusDays(7).atTime(7, 0).atZone(ZoneId.of("Africa/Tunis")).toInstant();
+        Instant t1Fin = todayTunis.plusDays(7).atTime(12, 0).atZone(ZoneId.of("Africa/Tunis")).toInstant();
+        upsertTournee("T-001", t1Debut, t1Fin, StatutTournee.PLANIFIEE, chef.getId(),
+                List.of(rec2.getId()), List.of(ouv1.getId(), ouv2.getId(), ouv3.getId()),
+                List.of(tr4.getId()), List.of(bn1.getId()), 1800.0);
+
+        Instant t2Debut = todayTunis.plusDays(8).atTime(7, 0).atZone(ZoneId.of("Africa/Tunis")).toInstant();
+        Instant t2Fin = todayTunis.plusDays(8).atTime(11, 0).atZone(ZoneId.of("Africa/Tunis")).toInstant();
+        upsertTournee("T-002", t2Debut, t2Fin, StatutTournee.BROUILLON, chef.getId(),
+                List.of(), List.of(ouv4.getId(), ouv5.getId()),
+                List.of(tr1.getId()), List.of(bn2.getId(), bn3.getId()), 0.0);
+
+        log.info("Peuplement des données terminé : Variétés={}, Utilisateurs={}, Vergers={}, Parcelles={}, Récoltes={}, Ressources={}, Tournées={}",
                 varieteRepository.count(), userRepository.count(), vergerRepository.count(),
-                parcelleRepository.count(), recolteRepository.count());
+                parcelleRepository.count(), recolteRepository.count(), ressourceRepository.count(), tourneeRepository.count());
     }
 
     private Variete upsertVariete(String code, String nom, Double seuilMaturite, Double rendementMoyenTHa, boolean actif) {
@@ -231,6 +278,34 @@ public class DataSeeder implements CommandLineRunner {
             recolte.setStatut(statut);
             recolte.setHistorique(historique);
             return recolteRepository.save(recolte);
+        });
+    }
+
+    private Ressource upsertRessource(String code, TypeRessource type, String libelle, StatutRessource statut, Double capaciteKg) {
+        String cleanCode = code.trim().toUpperCase(Locale.ROOT);
+        return ressourceRepository.findByCode(cleanCode).orElseGet(() ->
+                ressourceRepository.save(new Ressource(null, cleanCode, type, libelle, statut, capaciteKg, true))
+        );
+    }
+
+    private Tournee upsertTournee(String code, Instant debut, Instant fin, StatutTournee statut, String chefEquipeId,
+                                  List<String> recolteIds, List<String> ouvrierIds, List<String> tracteurIds,
+                                  List<String> benneIds, Double quantiteEstimeeKg) {
+        String cleanCode = code.trim().toUpperCase(Locale.ROOT);
+        return tourneeRepository.findByCode(cleanCode).orElseGet(() -> {
+            Tournee t = new Tournee();
+            t.setCode(cleanCode);
+            t.setDebut(debut);
+            t.setFin(fin);
+            t.setStatut(statut);
+            t.setChefEquipeId(chefEquipeId);
+            t.setRecolteIds(recolteIds);
+            t.setOuvrierIds(ouvrierIds);
+            t.setTracteurIds(tracteurIds);
+            t.setBenneIds(benneIds);
+            t.setQuantiteEstimeeKg(quantiteEstimeeKg);
+            t.setActif(true);
+            return tourneeRepository.save(t);
         });
     }
 }
